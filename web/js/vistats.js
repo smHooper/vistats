@@ -95,7 +95,7 @@ function getUserRoles(username) {
 		data: {action: 'getUserRoles'},
 		cache: false
 	})
-	
+
 	return deferred;
 }
 
@@ -348,6 +348,35 @@ function onSaveClick(event) {
         }
 	)
 }
+
+
+function generateJavascript(event) {
+
+	event.returnValue = false;
+
+	const selectedDate = new Date($('#month-select').val())
+	const monthName = selectedDate.toLocaleString('default', { month: 'long' });
+	var jsString = `document.getElementById('periodComboId-inputEl').value = '${monthName}, ${selectedDate.getFullYear()}';\n`
+
+	// check if any values are not yet verified
+
+	$('.data-input-row').each(function() {
+		const thisInput = $(this).find('.data-input');
+		const thisValue = thisInput.val();
+		if (thisValue === "" || thisValue === undefined) return;
+		const irmaElementID = thisInput.attr('data-irma-element');
+		jsString += `document.getElementById(${irmaElementID}).value = ${thisValue};\n`;
+		const isEstimated = $('#' + thisInput.attr('id').replace('input-', 'checkbox-estimated-')).prop('checked')
+		if (isEstimated) {
+			jsString += `document.getElementById(${irmaElementID}).classList.add('aprox');\n`;
+			jsString += `document.getElementById(${irmaElementID}).setAttibute('isaprox', '1');\n`;
+		}
+	})
+
+	$('#js-text').text(jsString)
+
+}
+
 
 function fillSelectOptions(selectElementID, queryString, optionClassName='') {
     

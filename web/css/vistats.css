@@ -184,6 +184,17 @@ button:hover {
 	margin-left: 30px;
 }
 
+
+#js-text-container {
+	margin-top: 20px;
+	width: 100%;
+}
+
+#js-text {
+	width: 100%;
+	padding: 20px;
+}
+
 /* Custom checkbox*/
 /* The container */
 .checkmark-container {

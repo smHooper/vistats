@@ -66,10 +66,12 @@
 				</table>
 				<div class="form-footer">
 					<button class="generic-button form-footer-button" id="save-button" onclick="onSaveClick(event)">save</button>
-					<button class="generic-button form-footer-button" id="fill-stats-button">generate javascript</button>
+					<button class="generic-button form-footer-button" id="fill-stats-button" onclick="generateJavascript(event)">generate javascript</button>
 				</div>		
 			</form>
-
+			<div id='js-text-container'>
+				<p id='js-text'></p>
+			</div>
 		</div>
 	
 	</div>
