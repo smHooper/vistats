@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import re
+import glob
 import traceback
 import pyodbc
 import requests
@@ -13,21 +14,59 @@ import pandas as pd
 
 BC_PERMIT_DB_NORTH_PATH = r"\\inpdenafiles\parkwide\Backcountry\Backcountry Permit Database\BC Permits Data %s.mdb"
 BC_PERMIT_DB_SOUTH_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\Backcountry Permit Database\BC Permits Data %s.mdb"
-CLIMBING_PERMIT_DB_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\DenaliNPS.mdb"
+CLIMBING_PERMIT_DB_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\backend\DenaliNPSData.mdb"
+MSLC_VISITOR_COUNT_PATH = r"\\inpdenafiles\teams\Interp\Ops All, Statistics\MSLC Winter VC, Education\* Winter VC Stats.xlsx"
+
 
 VEA_LOCATION_NAMES = {
     'Winter Visitor Center': 'mslc_visitors',
     'Summer Visitor Center': 'dvc_visitors'
 }
 
-WINTER_FIELDS = [
-
-]
 
 LODGE_BUS_FIELDS = {
     'CDN': 'camp_denali_bus_passengers',
     'DBL': 'denali_backcountry_lodge_bus_passengers',
     'KRH': 'kantishna_roadhouse_bus_passengers'
+}
+
+# Define the label IDs that should be automatable so that if the associated query returns an empty result, it can be
+#   filled with a 0 to distinguish them from values that have yet to be filled in
+VALUE_LABEL_IDS = {'winter':
+    [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10
+    ], 'summer':
+    [
+        13,
+        14,
+        15,
+        17,
+        21,
+        22,
+        23,
+        24,
+        27,
+        29,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        50
+    ]
 }
 
 def read_json_params(params_json):
@@ -58,7 +97,7 @@ def write_log(log, log_dir, timestamp):
     log_file_path = os.path.join(log_dir, '{0}_log_{1}.json'.format(os.path.basename(__file__).replace('.py', ''),
                                                                     re.sub('\D', '', timestamp)))
     with open(log_file_path, 'w') as f:
-        json.dump(log, f)
+        json.dump(log, f, indent=4)
 
 
 def main(param_file, log_dir, current_date=None):
@@ -66,7 +105,7 @@ def main(param_file, log_dir, current_date=None):
     now = datetime.datetime.now()
     if current_date:
         try:
-            current_date = datetime.datetime.strftime(current_date, '%Y-%m-%d')
+            current_date = datetime.datetime.strptime(current_date, '%Y-%m-%d')
         except:
             # Raise this error instead of logging because a call signature with current_date specified will only be run
             #   manually (not by an automated task)
@@ -76,6 +115,9 @@ def main(param_file, log_dir, current_date=None):
     query_date = current_date - relativedelta.relativedelta(months=1)
     query_year = query_date.year
     query_month = query_date.month
+    start_date = '{year}-{month}-1'.format(year=query_year, month=query_month)
+    end_date = '{year}-{month}-1'.format(year=current_date.year, month=current_date.month)
+    season = 'summer' if query_month in range(5, 10) else 'winter'
 
     # Make the log dir in case it doesn't already exist and set up a log dictionary for storing errors/messages
     if not os.path.isdir(log_dir):
@@ -103,16 +145,22 @@ def main(param_file, log_dir, current_date=None):
     ######################### BC Permit DBs ######################################################################
     ##############################################################################################################
     users_sql = '''
-                SELECT
-                    SUM(Itinerary.[Number of People]) AS bc_users,
-                    SUM(Itinerary.[Number of People] * Itinerary.[# Nights]) as bc_user_nights 
-                FROM Itinerary
-                WHERE 
-                    Itinerary.[# Nights] IS NOT NULL AND
-                    MONTH(Itinerary.[Camp Date])={month} AND
-                    YEAR(Itinerary.[Camp Date])={year}
-                GROUP BY MONTH(Itinerary.[Camp Date]);'''\
-        .format(month=query_month, year=query_year)
+        SELECT 
+        sum(users) AS bc_users,
+        sum(user_nights) AS bc_user_nights
+        FROM (
+            SELECT
+                1 AS constant,
+                MAX(Itinerary.[Number of People]) AS users,
+                SUM(Itinerary.[Number of People]) as user_nights 
+            FROM Itinerary
+            WHERE 
+                MONTH(Itinerary.[Camp Date])=3 AND
+                YEAR(Itinerary.[Camp Date])=2020
+            GROUP BY MONTH(Itinerary.[Camp Date]), [permit number]
+        ) 
+        GROUP BY constant;
+    '''.format(month=query_month, year=query_year)
 
     for side, path in {'north': BC_PERMIT_DB_NORTH_PATH, 'south': BC_PERMIT_DB_SOUTH_PATH}.items():
         bc_permit_db_path = path % query_year
@@ -131,7 +179,12 @@ def main(param_file, log_dir, current_date=None):
                 log['errors'].append({'action': 'reading %s BC permit DB' % side,
                                       'error': traceback.format_exc()
                                       })
-            data.append(bc_stats.rename(columns={c: c + '_%s' % side for c in bc_stats.columns}))
+            data.append(bc_stats\
+                            .rename(columns={c: c + '_{}_{}'.format(side, season) for c in bc_stats.columns})\
+                            .T\
+                            .reset_index()\
+                            .rename(columns={'index': 'value_label_id', 0: 'value'})
+                        )
 
     ##############################################################################################################
     ################################### climbing permits #########################################################
@@ -149,10 +202,11 @@ def main(param_file, log_dir, current_date=None):
         WHERE 
             tblGroupsRes.Status <>'CAN' AND 
             Month(qryGroupsDates.date_) = {month} AND
-            Year(qryGroupsDates.ActDeparture) = {year}
+            Year(qryGroupsDates.date_) = {year}
         GROUP BY Month(qryGroupsDates.date_), tblGroupsRes.ClimberID
         PIVOT tblRoutes.Mountain;
     '''.format(month=query_month, year=query_year)
+
     if not os.path.exists(CLIMBING_PERMIT_DB_PATH):
         log['errors'].append({'action': 'querying climbing permit DB',
                               'error': 'File does not exist: %s' % CLIMBING_PERMIT_DB_PATH})
@@ -177,11 +231,17 @@ def main(param_file, log_dir, current_date=None):
             climbing_stats['foraker_climbers'] = len(user_nights['Foraker'].dropna())
 
         else:
-            climbing_stats = {'denali_climber_user_nights': 0,
-                              'forkaer_climber_user_nights': 0,
-                              'denali_climbers': 0,
-                              'foraker_climbers': 0}
-        data.append(pd.DataFrame([climbing_stats]))
+            climbing_stats = pd.Series({
+                'denali_climber_user_nights': 0,
+                'foraker_climber_user_nights': 0,
+                'denali_climbers': 0,
+                'foraker_climbers': 0
+            })
+
+        data.append(pd.DataFrame({
+            'value_label_id': ['%s_%s' % (label, season) for label in climbing_stats.index],
+            'value': climbing_stats.values}
+        ))
 
 
     ###########################################################################################################
@@ -225,7 +285,9 @@ def main(param_file, log_dir, current_date=None):
                                     headers={"Content-type": "application/json",
                                              'Authorization': 'Bearer %s' % token},
                                     params={
-                                        'relativeDate': 'lastmonth',
+                                        'relativeDate': 'custom',
+                                        'startDate': start_date,
+                                        'endDate': end_date,
                                         'dateGroupings': 'month',
                                         'entityType': 'location',
                                         'entityIds': locations.locationId.tolist(),
@@ -241,70 +303,117 @@ def main(param_file, log_dir, current_date=None):
             # Make a data frame from the result
             #   replace names in the Vea system with names of fields in DB
             #   pivot the data so each location (now fields in the DB) is a column and the data only have one row
+            facility_counts = pd.DataFrame(response_json['results'])
+
+            # Even though the endDate parameter is supposed to create a non-
             data.append(
-                pd.DataFrame(response_json['results'])\
-                    .replace({'name': VEA_LOCATION_NAMES})\
-                    .pivot(columns='name', values='sumins')
+                facility_counts.loc[pd.to_datetime(facility_counts.recordDate_month_1).dt.month == (query_month)] \
+                    .replace({'name': {k: '%s_%s' % (v, season) for k, v in VEA_LOCATION_NAMES.items()}}) \
+                    .reindex(columns=['name', 'sumins']) \
+                    .rename(columns={'name': 'value_label_id',
+                                     'sumins': 'value'})
             )
         except:
             log['errors'].append({'action': 'querying Vea REST API data',
                                   'error': traceback.format_exc()
                                   })
 
+    # For now mslc counts should be by hand
+    if season == 'winter':
+        try:
+            mslc_counts_path = glob.glob(MSLC_VISITOR_COUNT_PATH)[0]
+            excel_doc = pd.ExcelFile(mslc_counts_path)
+        except:
+            log['errors'].append({'action': 'reading MSLC hand counts',
+                                  'error': traceback.format_exc()
+                                  })
+        month_names = pd.Series(pd.date_range('2020-1-1', '2021-1-1', freq='M').strftime('%B').str.lower(), index=range(1, 13))
+        sheets = pd.Series({sn: sn.lower() for sn in excel_doc.sheet_names if len(sn.split()) == 1})
+        this_month_name = month_names[query_month]
+        mslc_daily_counts = pd.DataFrame()
+        try:
+            this_sheet = sheets[sheets.apply(lambda x: this_month_name.startswith(x))].index[0]
+            mslc_daily_counts = excel_doc.parse(this_sheet)
+            mslc_count = mslc_daily_counts.dropna(axis=0, how='all').iloc[-1, 2]
+            data.append(pd.DataFrame([{'value_label_id': 'mslc_visitors_winter', 'value': mslc_count}]))
+        except:
+            log['errors'].append({'action': 'reading MSLC hand counts sheet for %s' % this_month_name,
+                                  'error': traceback.format_exc()
+                                  })
 
     ###########################################################################################################
     ################################## savage db queries ######################################################
     ###########################################################################################################
-    start_date = '{year}-{month}-1'.format(year=query_year, month=query_month)
-    end_date = '{year}-{month}-1'.format(year=current_date.year, month=current_date.month)
+
     sql_template = '''
-        SELECT sum(n_passengers) AS {field_name} 
+        SELECT '{label}' AS value_label_id, sum(n_passengers) AS value 
         FROM {table} 
         WHERE datetime BETWEEN '{start}' AND '{end}'
         GROUP BY extract(month FROM datetime)
     '''
 
     lodge_bus_sql = '''
-        SELECT bus_type, sum(n_passengers) n_passengers 
+        SELECT bus_type AS value_label_id, sum(n_passengers) AS value 
         FROM buses 
         WHERE 
             datetime BETWEEN '{start}' AND '{end}' AND
             bus_type in (SELECT code FROM bus_codes WHERE is_lodge_bus)
         GROUP BY bus_type, extract(month FROM datetime)
     '''.format(start=start_date, end=end_date)
-    try:
-        engine = sqlalchemy.create_engine(
-            'postgresql://{username}:{password}@{ip_address}:{port}/{db_name}'.format(**params['savage_db_credentials'])
-        )
 
-        with engine.connect() as conn:
-            bikes = pd.read_sql(sql_template.format(field_name='cyclists_past_savage', table='cyclists', start=start_date, end=end_date), conn)
-            road_lottery = pd.read_sql(sql_template.format(field_name='road_lottery_passengers', table='road_lottery', start=start_date, end=end_date), conn)
-            accessibility = pd.read_sql(sql_template.format(field_name='accessibility_permit_passengers', table='accessibility', start=start_date, end=end_date), conn)
-            photographers = pd.read_sql(sql_template.format(field_name='pro_photographers', table='photographers', start=start_date, end=end_date), conn)
+    research_sql = '''
+        SELECT sum(n_passengers) AS value 
+        FROM nps_approved 
+        WHERE 
+            datetime BETWEEN '{start}' AND '{end}' AND
+            approved_type = 'RSC' 
+        GROUP BY extract(month FROM datetime)
+    '''.format(start=start_date, end=end_date)
+    lottery_sql = '''
+        SELECT 'road_lottery_permits' as value_label_id, count(*) AS value 
+        FROM road_lottery
+        WHERE datetime BETWEEN '{start}' AND '{end}'
+        GROUP BY extract(month FROM datetime)
+    '''
+    # Only run this query for summer months
+    if season == 'summer':
+        try:
+            engine = sqlalchemy.create_engine(
+                'postgresql://{username}:{password}@{ip_address}:{port}/{db_name}'.format(**params['savage_db_credentials'])
+            )
 
-            lodge_buses = pd.read_sql(lodge_bus_sql, conn)\
-                .replace({'bus_type': LODGE_BUS_FIELDS})\
-                .set_index('bus_type')\
-                .T\
-                .reset_index(drop=True)
-        data.extend([bikes, road_lottery, accessibility, photographers, lodge_buses])
-    except:
-        log['errors'].append({'action': 'querying Savage DB',
-                              'error': traceback.format_exc()
-                              })
+            with engine.connect() as conn:
+                bikes = pd.read_sql(sql_template.format(label='cyclists_past_savage', table='cyclists', start=start_date, end=end_date), conn)
+                road_lottery = pd.read_sql(lottery_sql.format(start=start_date, end=end_date), conn)
+                accessibility = pd.read_sql(sql_template.format(label='accessibility_permit_passengers', table='accessibility', start=start_date, end=end_date), conn)
+                photographers = pd.read_sql(sql_template.format(label='pro_photographers', table='photographers', start=start_date, end=end_date), conn)
+                tek = pd.read_sql(sql_template.format(label='tek_passengers', table='photographers', start=start_date, end=end_date), conn)
+
+                employees = pd.read_sql(sql_template.format(label='non_rec_users', table='employee_vehicles', start=start_date, end=end_date), conn)
+                researchers = pd.read_sql(research_sql, conn)
+                non_rec_users = pd.DataFrame({'value_label_id': ['non_rec_pov_passengers'],
+                                              'value': pd.concat([employees, researchers]).value.sum()
+                                              })
+
+                lodge_buses = pd.read_sql(lodge_bus_sql, conn)\
+                    .replace({'value_label_id': LODGE_BUS_FIELDS})
+            data.extend([bikes, road_lottery, accessibility, photographers, tek, non_rec_users, lodge_buses])
+        except:
+            log['errors'].append({'action': 'querying Savage DB',
+                                  'error': traceback.format_exc()
+                                  })
 
     ###########################################################################################################
     ################################## glacier landings #######################################################
     ###########################################################################################################
     landings_sql = '''
-        SELECT sum(n_passengers) AS scenic_landings_south
+        SELECT 'scenic_landings_south' AS value_label_id, sum(n_passengers) AS value 
         FROM flights INNER JOIN landings ON flights.id = landings.flight_id
         WHERE 
             landings.landing_type = 'scenic' AND
             flights.departure_datetime BETWEEN '{start}' AND '{end}' AND
             flights.operator_code <> 'TST' 
-        GROUP BY extract(month FROM flights.departure_datetime)
+        GROUP BY value_label_id
     '''.format(start=start_date, end=end_date)
     try:
         engine = sqlalchemy.create_engine(
@@ -317,11 +426,26 @@ def main(param_file, log_dir, current_date=None):
                               'error': traceback.format_exc()
                               })
 
+
+    #################################### import data ###############################################################
+    counts = pd.concat(data, sort=False).drop_duplicates(subset='value_label_id', keep='last').fillna(0)
+
     try:
         engine = sqlalchemy.create_engine(
             'postgresql://{username}:{password}@{ip_address}:{port}/{db_name}'.format(**params['vistats_db_credentials'])
         )
         with engine.connect() as conn, conn.begin():
+            # replace labels with IDs
+            label_ids = pd.read_sql("SELECT id, retrieve_data_label FROM value_labels", conn) \
+                .set_index('retrieve_data_label')\
+                .id.to_dict()
+            counts.value_label_id = counts.value_label_id.replace(label_ids).astype(int)
+
+            # Make sure any queries that returned nothing are set to 0 (rather than just missing entirely)
+            counts = counts.append(
+                pd.DataFrame({'value_label_id': [i for i in VALUE_LABEL_IDS[season] if i not in counts.value_label_id.values]}))\
+                .fillna(0)
+
             # Insert count_period record
             recordset = conn.execute("INSERT INTO count_periods (count_date) VALUES ('%s') RETURNING id" % start_date)
             result = recordset.fetchall()
@@ -331,13 +455,12 @@ def main(param_file, log_dir, current_date=None):
             else:
                 raise RuntimeError('Invalid result returned from count_period INSERT statement: %s' % result)
 
-            data = pd.concat(data)
-            data['period_id'] = period_id
-            data['entered_by'] = os.path.basename(__file__)
-            data['submission_time'] = now
+            counts['period_id'] = period_id
+            counts['entered_by'] = os.path.basename(__file__)
+            counts['submission_time'] = now
 
             # insert counts
-            data.to_sql('counts', conn, index=False, if_exists='append')
+            counts.to_sql('counts', conn, index=False, if_exists='append')
     except:
         log['errors'].append({'action': 'importing data',
                               'error': traceback.format_exc()
