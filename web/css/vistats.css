@@ -1,0 +1,145 @@
+.hidden {
+	display: none;
+}
+
+
+.background-blur {
+	backdrop-filter: blur(8px);
+}
+
+button:hover {
+	cursor: pointer;
+}
+
+.generic-button  {
+	min-width: 150px;
+	height: 40px;
+	border: none;
+	margin-bottom: 35px;
+	background-color: hsl(195, 84%, 45%); 
+	color: white;
+	border-radius: 7px;
+}
+
+
+/* remove Bootstrap border when focused */
+.text-only-button:focus, .save-button:focus, .generic-button:focus{
+	outline: 0px !important;
+}
+
+
+  /* Custom checkbox*/
+/* The container */
+.checkmark-container {
+	display: inline-flex;
+	align-items: center;
+	position: relative;
+	cursor: pointer;
+	/*padding-left: 35px;
+	padding-right: 50px;*/
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	height:20px;
+}
+
+/* Hide the browser's default checkbox */
+.checkmark-container input {
+	position: absolute;
+	opacity: 0;
+	cursor: pointer;
+	height: 0;
+	width: 0;
+}
+
+/* Create a custom checkbox */
+.checkmark {
+	position: absolute;
+	top: 0;
+	left: 0;
+	height: 20px;
+	width: 20px;
+	background-color: none;
+	border: 2px solid hsl(195, 84%, 45%);
+	vertical-align: center;
+	horizontal-align: center;
+}
+
+/*When the checkbox is checked, fill in background*/ 
+.checkmark-container input:checked ~ .checkmark {
+	background-color: hsl(195, 84%, 45%);
+	border: none;
+}
+
+/* Create the checkmark/indicator (hidden when not checked) */
+.checkmark:after {
+	content: "";
+	position: absolute;
+	/*display: none;*/
+	opacity: 0;
+}
+
+/* Show the checkmark when checked */
+.checkmark-container input:checked ~ .checkmark:after {
+	/*display: block;*/
+	opacity: 1;
+}
+
+/* Style the checkmark/indicator */
+.checkmark-container .checkmark:after {
+	left: 7px;
+	top: 2px;
+	width: 7px;
+	height: 12px;
+	border: solid white;
+	border-width: 0 2px 2px 0;
+	-webkit-transform: rotate(45deg);
+	-ms-transform: rotate(45deg);
+	transform: rotate(45deg);
+	vertical-align: center;
+}
+
+
+/**** Loading indicator ******/
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* safari */
+@-webkit-keyframes spin {
+  0% { -webkit-transform: rotate(0deg); }
+  100% { -webkit-transform: rotate(360deg); }
+
+#loading-indicator {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 9999;
+  width: 150px;
+  height: 150px;
+  margin: -75px 0 0 -75px;
+  border: 16px solid #f3f3f3;
+  border-radius: 50%;
+  border-top: 16px solid hsl(195, 84%, 55%);
+  width: 120px;
+  height: 120px;
+  -webkit-animation: spin 2s linear infinite;
+  animation: spin 2s linear infinite;
+}
+
+#loading-indicator-background {
+	/*position: absolute;*/
+	z-index: 9998;
+	margin: 0;
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	/*height: 100%;
+	width: 100%;*/
+	background-color: white;
+	opacity: 0.4;
+}
