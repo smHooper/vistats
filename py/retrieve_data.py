@@ -63,7 +63,6 @@ VALUE_LABEL_IDS = {'winter':
         36,
         37,
         38,
-        39,
         40,
         50
     ]
@@ -155,8 +154,8 @@ def main(param_file, log_dir, current_date=None):
                 SUM(Itinerary.[Number of People]) as user_nights 
             FROM Itinerary
             WHERE 
-                MONTH(Itinerary.[Camp Date])=3 AND
-                YEAR(Itinerary.[Camp Date])=2020
+                MONTH(Itinerary.[Camp Date])={month} AND
+                YEAR(Itinerary.[Camp Date])={year}
             GROUP BY MONTH(Itinerary.[Camp Date]), [permit number]
         ) 
         GROUP BY constant;
@@ -412,15 +411,26 @@ def main(param_file, log_dir, current_date=None):
         WHERE 
             landings.landing_type = 'scenic' AND
             flights.departure_datetime BETWEEN '{start}' AND '{end}' AND
-            flights.operator_code <> 'TST' 
+            flights.operator_code NOT IN ('TST', 'KAT') 
         GROUP BY value_label_id
     '''.format(start=start_date, end=end_date)
+    north_side_sql = '''
+        SELECT 'aircraft_visitors_north_winter' AS value_label_id, sum(n_passengers) AS value 
+        FROM flights INNER JOIN landings ON flights.id = landings.flight_id
+        WHERE 
+            flights.departure_datetime BETWEEN '{start}' AND '{end}' AND
+            flights.operator_code='KAT'  
+        GROUP BY value_label_id
+    '''
     try:
         engine = sqlalchemy.create_engine(
             'postgresql://{username}:{password}@{ip_address}:{port}/{db_name}'.format(**params['landings_db_credentials'])
         )
         with engine.connect() as conn:
-            data.append(pd.read_sql(landings_sql, conn))
+            data.append([
+                pd.read_sql(landings_sql, conn),
+                pd.read_sql(north_side_sql, conn)
+            ])
     except:
         log['errors'].append({'action': 'querying landings',
                               'error': traceback.format_exc()

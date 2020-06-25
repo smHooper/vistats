@@ -10,11 +10,8 @@
 	<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
 	
 	<link href="//netdna.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.css" rel="stylesheet">
-	
-	<link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
-	<script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
 
-	<link rel="stylesheet" href="css/vistats.css">
+	<link rel="stylesheet" href="css/vistats-entry.css">
 </head>
 
 <body>
@@ -25,69 +22,73 @@
 
 	<div style="display: flex; justify-content: center; width: 100%; height: 100%">
 		
-		<div id="main-container">
-			
+
+		<div class="background-blur" id="main-container">
 			<div id="header-menu">
 				<div id="header-menu-content-container">
 					<div class="header-menu-item" id="username-container">
-						<img id="username-icon" src="imgs/user_icon_50px.svg">
+						<img id="username-icon" src="imgs/user_icon_50px.svg" alt="username icon">
 						<span id="username"></span>
 					</div> 
 				</div> 
 			</div>
 		
-			<form class="row mx-0 px-0 form-input-container" id="input-form">
+			<form class="mx-0 px-0 form-input-container" id="input-form">
 				<div class=form-header>
 					<div class='form-header-content-container'>
 						<h5 class='form-header-title'>Visitor use stats for: </h5>
 						<select id="month-select"></select>
 					</div>
 				</div>
-				<table id='input-table'>
-					<thead>
-						<tr>
-							<td></td>
-							<td></td>
-							<td>Estimated?</td>
-							<td>Verified?</td>
-							<td>Verified by</td>
-						</tr>
-					</thead>
-					<tbody>
+				<div class="form-data-container" id='input-table'>
+					<div class="form-data-header data-input-row">
+						<div class="label-column data-input-cell"></div>
+						<div class="input-column data-input-cell"></div>
+						<div class="is-estimated-column data-input-cell">Estimated?</div>
+						<div class="is-verified-column data-input-cell">Verified?</div>
+						<div class="verified-by-column data-input-cell">Verified by</div>
+					</div>
+					<div class="form-data-body">
 						<!--filled on load-->
-					</tbody>
-					<tfoot>
-						<td></td>
-						<td></td>
-						<td></td>
-						<td><button class="text-only-button table-footer-button hidden" id="verify-all-button" onclick="onVerifyAllClick(event)">verify all</button></td>
-						<td></td>
-					</tfoot>
-				</table>
+					</div>
+					<div class="form-data-footer data-input-row">
+						<div class="label-column data-input-cell" ></div>
+						<div class="input-column data-input-cell"></div>
+						<div class="is-estimated-column data-input-cell"></div>
+						<div class="is-verified-column data-input-cell">
+							<button class="text-only-button table-footer-button hidden" id="verify-all-button" onclick="onVerifyAllClick(event)">
+								verify all
+							</button>
+						</div>
+						<div class="verified-by-column data-input-cell"></div>
+					</div>
+				</div>
 				<div class="form-footer">
 					<button class="generic-button form-footer-button" id="save-button" onclick="onSaveClick(event)">save</button>
 					<button class="generic-button form-footer-button" id="fill-stats-button" onclick="generateJavascript(event)">generate javascript</button>
 				</div>		
+				<div id="js-text-container">
+					<p class="hidden" id="js-text"></p>
+				</div>
+				<!--<div id="form-footer-spacer"></div>-->
 			</form>
-			<div id='js-text-container'>
-				<p id='js-text'></p>
-			</div>
+
 		</div>
 	
 	</div>
 
 	<script src="js/jquery.csv.min.js"></script>
-	<script src="js/vistats.js"></script>
+	<script src="js/vistats-entry.js"></script>
 
 	<script type="text/javascript">
 		
-		$(document).ready(() => {
-
+		$(document).ready(function() {
+			$(window).resize(resizeColumns);
 			showLoadingIndicator();
 			$.when(
 				queryDB(`SELECT id, count_date FROM count_periods`)
 					.then((queryResultString)=> {$.parseJSON(queryResultString).forEach(
-						(obj) => {COUNT_PERIODS[obj.id] = obj.count_date})}),
+						(obj) => {COUNT_PERIODS[obj.count_date] = obj.id})}),
 				$.ajax({
 					url: 'vistats.php',
 					method: 'POST',
@@ -102,7 +103,8 @@
 								.then(
 									(jsonString) => {
 									USER_ROLES = $.parseJSON(jsonString);
-									configureForm();
+									configureForm().then(resizeColumns);
+
 								})
 						} else {
 							$('#username-icon').addClass('hidden')
@@ -118,7 +120,11 @@
 				$('#month-select').change(function() {onMonthSelectChange()});
 			});
 
-
+			$(window).on('beforeunload', function(event) {
+				if ($('.data-dirty').length) {
+					return `Are you sure you want to close the web portal? You have unsaved edits that will be lost if you continue`
+				}
+			});
 		})
 
 	</script>

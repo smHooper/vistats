@@ -2,7 +2,7 @@
 
 <?php
 
-include '../config/vistats-config.php';
+include '../config/vistats-entry-config.php';
 
 
 function runQuery($ipAddress, $port, $dbName, $username, $password, $queryStr, $parameters=array()) {
@@ -27,7 +27,9 @@ function runQueryWithinTransaction($conn, $queryStr, $parameters=array()) {
 
 	$result = pg_query_params($conn, $queryStr, $parameters);
 	if (!$result) {
-	  	return pg_last_error();
+		$err = pg_last_error();
+		echo $err;
+	  	return $err;
 	}
 
 }
