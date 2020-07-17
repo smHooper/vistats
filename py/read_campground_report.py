@@ -98,17 +98,25 @@ def main(path, count_date):
     #   2. melt unpivots to get a row for each value in tent and vehicle column counts
     #   3. drop any null values (where tent or vehicle site doesn't apply)
     counts = data.groupby(['site', 'site_type']).nights.sum()\
+        .unstack()\
         .reset_index()\
         .melt(id_vars='site', value_vars=['tent', 'vehicle'])\
         .dropna(subset=['value'])
     # Turn site + site_type into retrieve_data labels so the web app knows what fields the values belong to
     counts.site_type = counts.site + ' ' + counts.site_type
     counts['retrieve_data_label'] = counts.site_type.replace(FIELD_NAMES)
-    counts.drop(columns=['site', 'site_type'], inplace=True)
-    json_str = counts.drop(columns=['site', 'site_type']).T.to_json()
+    json_str = counts \
+        .drop(columns=['site', 'site_type']) \
+        .set_index('retrieve_data_label') \
+        .reindex(index=FIELD_NAMES.values()) \
+        .value.fillna(0) \
+        .astype(int) \
+        .to_json()
+
+    print(json_str) # need to send it to stdout for php to receive it
 
     return json_str
 
 
 if __name__ == '__main__':
-    sys.exit(main(*sys.argv[:1]))
+    sys.exit(main(*sys.argv[1:]))

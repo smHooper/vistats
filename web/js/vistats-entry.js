@@ -10,7 +10,7 @@ function queryDB(sql) {
 	var deferred = $.ajax({
 		url: 'vistats.php',
 		method: 'POST',
-		data: {action: 'query', queryString: sql},
+		data: {action: 'query', queryString: sql, db: 'vistats'},
 		cache: false
 	});
 
@@ -52,7 +52,7 @@ function onVerifyAllClick(event) {
 	// If any data fields are blank, as the user if they want to set them to 0
 	const missingVals = $('.data-input').filter(function() {return $(this).val() === ""});
 	if (missingVals.length) {
-		const setTo0 = confirm(`1 or more fields that you're marking as confirmed are currently blank. Do you want to set them all to 0 or cancel verifying all values?`)
+		const setTo0 = window.confirm(`1 or more fields that you're marking as confirmed are currently blank. Do you want to set them all to 0 or cancel verifying all values?`)
 		if (setTo0) {
 			missingVals.val(0).change() // set to 0 and record vals in DATA object
 		} else {
@@ -81,7 +81,7 @@ function onVerifyAllClick(event) {
 		})
 		// If so, check that the user really wants to unverify all of them
 		let unselectConfirmed = verifiedByOther ? 
-			confirm('There are some values that have been verified by another user. Are you sure you want to mark them all as unverified?') :
+			window.confirm('There are some values that have been verified by another user. Are you sure you want to mark them all as unverified?') :
 			true;
 		if (unselectConfirmed) {
 			$('.verified-checkbox').prop('checked', false);
@@ -238,7 +238,9 @@ function configureForm(periodDate) {
 				$('.summer-field').removeClass('hidden')
 			} else {
 				$('.winter-field').removeClass('hidden')
+				$('.generic-button.summer-field').addClass('hidden');
 			}
+
 
 			// This button is hidden at first because loading the data takes a minute
 			//	 and it doesn't make sense to show it before then
@@ -246,7 +248,7 @@ function configureForm(periodDate) {
 
 			$('.form-data-body > .data-input-row').not(':hasTag').addClass('hidden');
 
-			if (!USER_ROLES[currentUser].includes('admin')) $('#fill-stats-button').addClass('hidden')
+			if (!USER_ROLES[currentUser].includes('admin')) $('.admin-button').addClass('hidden');
 
 			// Remove any hidden rows from the DOM
 			$('.data-input-row.hidden').remove();
@@ -272,11 +274,11 @@ function configureForm(periodDate) {
 
 
 function confirmDiscardEdits() {
-	var confirm = true;
+	var confirmed = true;
 	if ($('.data-dirty').length) {
-		confirm = confirm(`You have unsaved edits. Are you sure you want to reload the form and discard your edits? If not, click 'Cancel' and then 'save.'`)
+		confirmed = window.confirm(`You have unsaved edits. Are you sure you want to reload the form and discard your edits? If not, click 'Cancel' and then 'save.'`)
 	}
-	return confirm;
+	return confirmed;
 }
 
 
@@ -306,7 +308,7 @@ function userDidEdit(thisID){
 }
 
 
-function onDataInputChange(inputID) {
+function onDataInputChange(inputID, promptIfVerified=true) {
 	/*Handle changes to an input text field*/
 
 	const thisInput = $('#' + inputID);
@@ -317,8 +319,8 @@ function onDataInputChange(inputID) {
 	var commitChange = true;
 	//If this value has already been verified (by someone else), confirm the change
 	//if ()
-	if (verifiedCheckbox.prop('checked') && verifiedBy !== $('#username').text()) {
-		commitChange = confirm(`Are you sure you want to change this value? It was already verified by ${verifiedBy}`);
+	if (verifiedCheckbox.prop('checked') && verifiedBy !== $('#username').text() && promptIfVerified) {
+		commitChange = window.confirm(`Are you sure you want to change this value? It was already verified by ${verifiedBy}`);
 		if (commitChange) { 
 			DATA[labelID].value = thisInput.val();
 			DATA[labelID].verified = false;
@@ -391,7 +393,8 @@ function onSaveClick(event) {
 	var sqlStatements = [];
 	var sqlParameters = [];
 	var newInserts = [];
-	$('.data-input-row').each(function() {
+	$('.data-input-row').filter(function() {return !($(this).hasClass('form-data-header') || $(this).hasClass('form-data-footer'))})
+		.each(function() {
 		const thisID = $(this).attr('data-label-id');
 		const thisObj = DATA[thisID];
 		let dataValue = thisObj.value;
@@ -452,6 +455,119 @@ function onSaveClick(event) {
 }
 
 
+function closeImportDataModal() {
+
+	$('#import-data-background').remove();
+	$('#import-data-modal').remove();
+}
+
+
+function parsePythonErrorString(stderr) {
+	/*Find the actual python error in a returned stderr string*/
+	var error;
+	var dbErrorDetail = stderr.match(/[\r\n]DETAIL.*[\r\n]/);
+	if (dbErrorDetail != null) {
+		error = dbErrorDetail.toString().replace('DETAIL: ', '').trim();
+	} else {
+	    var lines = stderr.split('\n');
+	    var errorName = stderr.match(/[A-Z][a-z]*Error/)//standard python Exception ends in "Error" (e.g., ValueError);
+	    
+	    for (lineNumber in lines) {
+	        if (lines[lineNumber].startsWith(errorName)) {
+	            error = lines[lineNumber];
+	            break;
+	        }
+	    }
+	}
+}
+
+function loadJVReport(responseText, statusText, xhr, $form) {
+
+	responseText = responseText.trim();
+
+	if (responseText.startsWith('ERROR')) {
+		alert('An error occurred while trying to load the report: ' + responseText);
+	} else if (responseText.startsWith('Traceback')) {
+		alert('An error occurred while trying to read the report: ' + parsePythonErrorString(responseText));
+	} else {
+		// The script ran successfull and returned a JSON string
+		data = $.parseJSON(responseText);
+		for (retrieve_data_label in data) {
+			const thisID = $(this)
+			const thisValue = data[retrieve_data_label];
+			const thisRow = $(`#data-row-${retrieve_data_label}`);
+			const thisInput = $(`#input-${retrieve_data_label}`);
+
+			// Update form
+			thisInput.val(thisValue);
+			thisRow.find('.estimated-checkbox').prop('checked', false);
+			thisRow.find('.verified-checkbox').prop('checked', false);
+
+			// Update global DATA object
+			thisInput.change();//onDataInputChange('input-' + retrieve_data_label);
+			closeImportDataModal();
+			hideLoadingIndicator('onImportButtonClick');
+		}
+	}
+
+}
+
+
+function onImportButtonClick(event) {
+	
+	event.returnValue = false;
+	const countDate = $('#month-select').val();
+
+	$(
+	`<div class="modal-background modal-background-dark" id="import-data-background"></div>
+	<div class="modal" id="import-data-modal">
+		<div class="import-data-modal-row">
+			<h5>Upload data from a JV report</h5>
+		</div>
+		<form id="jv-report-form" method="POST" enctype="multipart/form-data" action="vistats.php">
+			<input class="hidden" type="text" value="${countDate}" name="countDate">
+			<div class="import-data-modal-row mb-0">
+				<label>Report type</label>
+			</div>
+			<div class="import-data-modal-row">
+				<select class="import-data-row-item import-data-text-item" id="data-type-select" name="reportType">
+					<option class="select-option" value='campgrounds'>Campgrounds</option>
+					<option class="select-option" value='buses'>Bus ridership</option>
+				</select>
+				<label class="import-data-row-item text-center generic-button file-input-label" for="file-upload">browse</label>
+				<input id="file-upload" type="file" accept=".csv, .xls, .xlsx" name="uploadedFile">
+			</div>
+			<div class="import-data-modal-row">
+				<label class="import-data-row-item import-data-text-item" id="import-filename-label"></label>
+			</div>
+			<div class="import-data-modal-row center-horizontally">
+				<button class="generic-button import-data-row-item secondary-button" onclick="closeImportDataModal()">cancel</button>
+				<input class="generic-button import-data-row-item hidden" type="submit" value="load" name="submit">
+			</div>
+		</form
+
+	</div>`).appendTo('body');
+	
+	$('#file-upload').change(function() {
+		if (this.files.length > 0) {
+			$('#import-filename-label').text(this.files[0].name);
+			$('.import-data-modal-row.center-horizontally').addClass('distribute-horizontally').removeClass('center-horizontally');
+			$('.generic-button.import-data-row-item').removeClass('hidden');
+		}
+		
+	})	
+
+	$('#import-data-background').click(closeImportDataModal);
+
+	$('#jv-report-form').ajaxForm({
+		success: loadJVReport,
+		clearForm: false,
+		resetForm: false
+	}).submit(() => {showLoadingIndicator('onImportButtonClick')}); // show loading indicator when form is submitted
+
+}
+
+
 function getBrowser() {
 	/*
 	Code to get browser name. Useful for determining Selenium driver to user.
@@ -489,7 +605,7 @@ function generateJavascript(event) {
 
 	// check if any values are not yet verified
 	if ($('.verified-checkbox').not(':checked').length) {
-		if (!confirm('Some values are not yet verified. Are you sure you want to continue?')) return;
+		if (!window.confirm('Some values are not yet verified. Are you sure you want to continue?')) return;
 	}
 
 	const selectedDate = new Date($('#month-select').val() + 'T12:00:00.000-08:00')
@@ -545,17 +661,21 @@ function fillSelectOptions(selectElementID, queryString, optionClassName='') {
 }
 
 
-function showLoadingIndicator() {
+function showLoadingIndicator(caller, timeout=15000) {
 
 	//set a timer to turn off the indicator after a max of 15 seconds because 
 	//  sometimes hideLoadingIndicator doesn't get called or there's some mixup 
 	//  with who called it
-	setTimeout(hideLoadingIndicator, 15000);
+	if (timeout) {
+		setTimeout(hideLoadingIndicator, timeout);
+	}
+	
+	// For anonymous functions, the caller is undefined, so (hopefully) the 
+	//	function is called with the argument given
+	var thisCaller = caller == undefined ? showLoadingIndicator.caller.name : caller;
 
-	var thisCaller = showLoadingIndicator.caller.name;
-
-	var indicator = $('#loading-indicator').css('display', 'block')
-	$('#loading-indicator-background').css('display', 'block');
+	var indicator = $('#loading-indicator').removeClass('hidden')
+	$('#loading-indicator-background').removeClass('hidden');
 
 	// check the .data() to see if any other functions called this
 	indicator.data('callers', indicator.data('callers') === undefined ? 
@@ -581,8 +701,8 @@ function hideLoadingIndicator(caller) {
 
 	// Hide the indicator if there are no more callers
 	if (!indicator.data('callers').length) {
-		$('#loading-indicator-background').css('display', 'none');
-		indicator.css('display', 'none');
+		$('#loading-indicator-background').addClass('hidden');
+		indicator.addClass('hidden');
 	}
 
 }

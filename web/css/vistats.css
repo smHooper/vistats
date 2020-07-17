@@ -21,11 +21,29 @@ button:hover {
 	border-radius: 7px;
 }
 
+.plot-header-menu {
+	height: 60px;
+	width: 100%;
+	background-color: black;
+	display: flex;
+	justify-content: flex-start;
+	align-items: center;
+}
+
+.home-button {
+	height: 45px;
+	width: 45px;
+	margin-left: 20px;
+	background: url(../imgs/plot_home_icon_50px.svg) no-repeat;
+	border: none;
+}
+
 
 /* remove Bootstrap border when focused */
-.text-only-button:focus, .save-button:focus, .generic-button:focus{
+.text-only-button:focus, .save-button:focus, .generic-button:focus, .home-button:focus{
 	outline: 0px !important;
 }
+
 
 
   /* Custom checkbox*/
@@ -142,4 +160,25 @@ button:hover {
 	width: 100%;*/
 	background-color: white;
 	opacity: 0.4;
+}
+
+/* animations */
+@-webkit-keyframes slideIn {
+	from {transform: translate(-25%, -50%); opacity: 0}
+	to {transform: translate(-50%, -50%); opacity: 1;}
+}
+
+@keyframes slideIn {
+	from {transform: translate(-25%, -50%); opacity: 0}
+	to {transform: translate(-50%, -50%); opacity: 1;}
+}
+
+@-webkit-keyframes fadeIn {
+  from {opacity: 0} 
+  to {opacity: 1}
+}
+
+@keyframes fadeIn {
+  from {opacity: 0} 
+  to {opacity: 1}
 }

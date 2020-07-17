@@ -5,6 +5,7 @@
 	<meta name="viewport" content="width=device-width,height=device-height, user-scalable=no" />
 	<title>Visitor Use Stats Portal</title>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+	<script src="http://malsup.github.com/jquery.form.js"></script>
 	
 	<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css"/>
 	<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
@@ -12,13 +13,16 @@
 	<link href="//netdna.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.css" rel="stylesheet">
 
 	<link rel="stylesheet" href="css/vistats-entry.css">
+	<link rel="stylesheet" href="css/vistats.css">
 </head>
 
 <body>
 
 	 <!-- loading indicator should be hidden and will only be shown when loading data -->
-	<div id="loading-indicator-background" style="display: none;"></div>
-	<div id="loading-indicator" style="display: none;"></div>
+	<div class="modal-background modal-background-light" id="loading-indicator-background"></div>
+	<div id="loading-indicator"></div>
+
+	<!-- modal import form is hidden until import JV data button clicked-->
 
 	<div style="display: flex; justify-content: center; width: 100%; height: 100%">
 		
@@ -65,7 +69,8 @@
 				</div>
 				<div class="form-footer">
 					<button class="generic-button form-footer-button" id="save-button" onclick="onSaveClick(event)">save</button>
-					<button class="generic-button form-footer-button" id="fill-stats-button" onclick="generateJavascript(event)">generate javascript</button>
+					<button class="generic-button form-footer-button admin-button summer-field" id="import-data-button" onclick="onImportButtonClick(event)">upload JV data</button>
+					<button class="generic-button form-footer-button admin-button" id="fill-stats-button" onclick="generateJavascript(event)">generate javascript</button>
 				</div>		
 				<div id="js-text-container">
 					<p class="hidden" id="js-text"></p>
@@ -113,7 +118,7 @@
 						}
 					}
 				}),
-				fillSelectOptions('month-select', `SELECT count_date AS value, to_char(count_date, 'FMMonth, YYYY') AS name FROM count_periods ORDER BY count_date DESC;`, 'month-select-option')
+				fillSelectOptions('month-select', `SELECT count_date AS value, to_char(count_date, 'FMMonth, YYYY') AS name FROM count_periods ORDER BY count_date DESC;`, 'select-option')
 			)
 			.then(function() {
 				hideLoadingIndicator();
