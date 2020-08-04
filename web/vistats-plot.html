@@ -4,6 +4,7 @@
 	<meta charset='utf-8'>
 	<meta name="viewport" content="width=device-width,height=device-height, user-scalable=no" />
 	<title>Visitor Use Stats Portal</title>
+	<link rel="icon" type="image/x-icon" href="favicon.ico"/>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
 	
 	<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.3.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css"/>
@@ -21,13 +22,14 @@
 	<div id="loading-indicator-background" style="display: none;"></div>
 	<div id="loading-indicator" style="display: none;"></div>
 
+	<div class="plot-header-menu">
+		<button class="home-button"></button>
+	</div>
 	<div id="main-container">
-		<div id="header-menu">
-		</div>
 
 		<div class="background-blur" id="card-container">
 			<div class="card slide-up-on-hover">
-				<a class="card-block stretched-link text-decoration-none" href>
+				<a class="card-block stretched-link text-decoration-none" href="plot-irma-stats.html">
 					<img class="card-img-top card-img" src="imgs/irma_db_card.jpg" alt="IRMA Stats button image">
 					<div class="card-body">
 						<h4 class="card-title">IRMA Stats</h4>
@@ -39,22 +41,22 @@
 			</div>
 			<div class="card slide-up-on-hover">
 				<a class="card-block stretched-link text-decoration-none" href>
-					<img class="card-img-top card-img" src="imgs/backcountry_db_card.jpg" alt="IRMA Stats button image">
+					<img class="card-img-top card-img" src="imgs/backcountry_db_card.jpg" alt="backcountry stats button image">
 					<div class="card-body">
 						<h4 class="card-title">Backcountry Use</h4>
 						<p class="card-text">
-							Number of users and/or usernights by backcountry unit, including backcountry permits issued by Talkeetna ranger station staff. 
+							Number of users or usernights by backcountry unit, including backcountry permits issued by Talkeetna ranger station staff. Data are available back to 2001.
 						</p>
 					</div>
 				</a>
 			</div>
 			<div class="card slide-up-on-hover">
 				<a class="card-block stretched-link text-decoration-none" href>
-					<img class="card-img-top card-img" src="imgs/mountaineering_db_card.jpg" alt="IRMA Stats button image">
+					<img class="card-img-top card-img" src="imgs/mountaineering_db_card.jpg" alt="Climbing stats button image">
 					<div class="card-body">
 						<h4 class="card-title">Denali and Foraker</h4>
 						<p class="card-text">
-							Number of users and/or usernights on Denali and/or Foraker entered in the mountaineering permit database by Talkeetna staff. Data are available back to 2010.
+							Number of users or usernights on Denali and/or Foraker entered in the mountaineering permit database by Talkeetna staff. Data are available back to 2010.
 						</p>
 					</div>
 				</a>
