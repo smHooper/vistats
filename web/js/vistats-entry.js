@@ -50,7 +50,7 @@ function onVerifyAllClick(event) {
 	const username = $('#username').text();
 
 	// If any data fields are blank, as the user if they want to set them to 0
-	const missingVals = $('.data-input').filter(function() {return $(this).val() === ""});
+	const missingVals = $('.data-input').filter(function() {return !$(this).hasClass('hidden') && $(this).val() === ""});
 	if (missingVals.length) {
 		const setTo0 = window.confirm(`1 or more fields that you're marking as confirmed are currently blank. Do you want to set them all to 0 or cancel verifying all values?`)
 		if (setTo0) {
@@ -60,33 +60,34 @@ function onVerifyAllClick(event) {
 		}
 	}	
 
-	var nCheckboxes = $('.verified-checkbox').length;
-	var isChecked = $('.verified-checkbox:checked');
-	var nCheckboxesChecked = isChecked.length;
+	var visibleCheckboxes = $('.verified-checkbox').filter(function() {return !$(this).closest('.data-input-row').hasClass('hidden')});
+	var nCheckboxes = visibleCheckboxes.length;
+	var nCheckboxesChecked = visibleCheckboxes.filter(':checked').length;
 
 	if (nCheckboxesChecked < nCheckboxes) {
-		let notChecked = $('.verified-checkbox').not(':checked');
+		let notChecked = visibleCheckboxes.not(':checked');
 		let notCheckedLabels = notChecked.closest('.data-input-row').children('.verified-by-label');
 		notCheckedLabels.text(username);
-		$('.verified-checkbox')
+		visibleCheckboxes
 			.prop('checked', true)
 			.change();
 		$('#verify-all-button').text('unselect all');
 	} else {
 		// Check if anything has been verified by another user
 		var verifiedByOther = false;
-		$('.verified-by-label').each(function(){
-			let thisUsername = $(this).text();
-			verifiedByOther = thisUsername !== '' && thisUsername !== username;
-		})
+		$('.verified-by-label').filter(function() {return !$(this).closest('.data-input-row').hasClass('hidden')})
+			.each(function(){
+				let thisUsername = $(this).text();
+				verifiedByOther = verifiedByOther ? true : thisUsername !== '' && thisUsername !== username;
+			})
 		// If so, check that the user really wants to unverify all of them
 		let unselectConfirmed = verifiedByOther ? 
 			window.confirm('There are some values that have been verified by another user. Are you sure you want to mark them all as unverified?') :
 			true;
 		if (unselectConfirmed) {
-			$('.verified-checkbox').prop('checked', false);
+			visibleCheckboxes.prop('checked', false);
 			$('#verify-all-button').text('verify all');
-			$('.verified-by-label').text('')
+			visibleCheckboxes.closest('.data-input-row').find('.verified-by-label').text('')
 		}
 	}
 }
@@ -117,12 +118,13 @@ function getUserRoles(username) {
 
 function setVerifyAllButtonText() {
 	
-	var nCheckboxes = $('.verified-checkbox').length
-	var nCheckboxesChecked = $('.verified-checkbox:checked').length
+	var visibleCheckboxes = $('.verified-checkbox').filter(function() {return !$(this).closest('.data-input-row').hasClass('hidden')});
+	var nCheckboxes = visibleCheckboxes.length;
+	var nCheckboxesChecked = visibleCheckboxes.filter(':checked').length;
 	if (nCheckboxesChecked < nCheckboxes) {
-		$('#verify-all-button').text('verify all')
+		$('#verify-all-button').text('verify all');
 	} else {
-		$('#verify-all-button').text('unselect all')
+		$('#verify-all-button').text('unselect all');
 	}
 }
 
@@ -188,6 +190,7 @@ function configureForm(periodDate) {
 						extract(month FROM count_periods.count_date) = ${periodMonth}
 				) AS counts
 				ON value_labels.id = counts.value_label_id 
+		WHERE irma_html_element_id IS NOT NULL AND irma_html_element_id <> ''
 		ORDER BY id;
 	`
 	let deferred = queryDB(sql)
@@ -251,7 +254,7 @@ function configureForm(periodDate) {
 			if (!USER_ROLES[currentUser].includes('admin')) $('.admin-button').addClass('hidden');
 
 			// Remove any hidden rows from the DOM
-			$('.data-input-row.hidden').remove();
+			//$('.data-input-row.hidden').remove();
 
 			// Register any change events to mark the form as dirty
 			$('.data-input, .input-checkbox').change(function() {
@@ -259,9 +262,6 @@ function configureForm(periodDate) {
 			})
 
 			setVerifyAllButtonText();
-			// When the user checks the 
-			//$('.verified-checkbox').change(()=>{$(this).closest('tr').find('.verified-by-label').val(currentUser)})
-
 
 		},
 		failFilter=function(xhr, status, error) {
@@ -393,7 +393,13 @@ function onSaveClick(event) {
 	var sqlStatements = [];
 	var sqlParameters = [];
 	var newInserts = [];
-	$('.data-input-row').filter(function() {return !($(this).hasClass('form-data-header') || $(this).hasClass('form-data-footer'))})
+	$('.data-input-row').filter(function() {
+			return !(
+				$(this).hasClass('form-data-header') || 
+				$(this).hasClass('form-data-footer') || 
+				$(this).hasCLass('hidden')
+			)
+		})
 		.each(function() {
 		const thisID = $(this).attr('data-label-id');
 		const thisObj = DATA[thisID];
@@ -440,7 +446,7 @@ function onSaveClick(event) {
 	}).then(
     	function(queryResultString){
         	let resultString = queryResultString.trim();
-        	if (resultString.startsWith('ERROR') || resultString === "false" || resultString === "php quert failed") {
+        	if (resultString.startsWith('ERROR') || resultString === "false" || resultString === "php query failed") {
         		alert('Unabled to save changes to the database. ' + resultString);
         		return false; // Save was unsuccessful
         	} else {
@@ -479,16 +485,20 @@ function parsePythonErrorString(stderr) {
 	        }
 	    }
 	}
+
+	return error;
 }
+
 
 function loadJVReport(responseText, statusText, xhr, $form) {
 
 	responseText = responseText.trim();
+	const pythonError = parsePythonErrorString(responseText);
+	const dataType = $('#data-type-select > option:selected').text();
+	const username = $('#username').text();
 
-	if (responseText.startsWith('ERROR')) {
+	if (pythonError !== undefined) {
 		alert('An error occurred while trying to load the report: ' + responseText);
-	} else if (responseText.startsWith('Traceback')) {
-		alert('An error occurred while trying to read the report: ' + parsePythonErrorString(responseText));
 	} else {
 		// The script ran successfull and returned a JSON string
 		data = $.parseJSON(responseText);
@@ -501,13 +511,16 @@ function loadJVReport(responseText, statusText, xhr, $form) {
 			// Update form
 			thisInput.val(thisValue);
 			thisRow.find('.estimated-checkbox').prop('checked', false);
-			thisRow.find('.verified-checkbox').prop('checked', false);
+			thisRow.find('.verified-checkbox').prop('checked', true);
 
 			// Update global DATA object
-			thisInput.change();//onDataInputChange('input-' + retrieve_data_label);
-			closeImportDataModal();
-			hideLoadingIndicator('onImportButtonClick');
+			onDataInputChange('input-' + retrieve_data_label, promptIfVerified=false);
+			thisRow.find('.verified-by-label').text(username);
 		}
+
+		closeImportDataModal();
+		hideLoadingIndicator('onImportButtonClick');		
+		alert(`JV ${dataType} data successfullly loaded`)
 	}
 
 }
@@ -518,11 +531,14 @@ function onImportButtonClick(event) {
 	event.returnValue = false;
 	const countDate = $('#month-select').val();
 
+	// check who should be contact for DVC counts
+	// check who should be contact for kennels
 	$(
 	`<div class="modal-background modal-background-dark" id="import-data-background"></div>
 	<div class="modal" id="import-data-modal">
-		<div class="import-data-modal-row">
+		<div class="import-data-modal-row distribute-horizontally">
 			<h5>Upload data from a JV report</h5>
+			<label>Uploading for <strong>${$('#month-select > option:selected').text()}</strong></label>
 		</div>
 		<form id="jv-report-form" method="POST" enctype="multipart/form-data" action="vistats.php">
 			<input class="hidden" type="text" value="${countDate}" name="countDate">
@@ -534,7 +550,7 @@ function onImportButtonClick(event) {
 					<option class="select-option" value='campgrounds'>Campgrounds</option>
 					<option class="select-option" value='buses'>Bus ridership</option>
 				</select>
-				<label class="import-data-row-item text-center generic-button file-input-label" for="file-upload">browse</label>
+				<label class="import-data-row-item text-center generic-button file-input-label mx-0" for="file-upload">browse</label>
 				<input id="file-upload" type="file" accept=".csv, .xls, .xlsx" name="uploadedFile">
 			</div>
 			<div class="import-data-modal-row">
@@ -599,26 +615,43 @@ function getBrowser() {
 }
 
 
+function copyToClipboard(elementID, deselect=true) {
+	
+	var range = document.createRange();
+	range.selectNode(document.getElementById(elementID));
+	
+	// clear current selection
+	window.getSelection().removeAllRanges(); 
+	
+	window.getSelection().addRange(range); // to select text
+	
+	document.execCommand("copy");
+	
+	// Deselect
+	if (deselect) window.getSelection().removeAllRanges();
+}
+
+
 function generateJavascript(event) {
 
 	event.returnValue = false;
 
 	// check if any values are not yet verified
-	if ($('.verified-checkbox').not(':checked').length) {
+	var visibleCheckboxes = $('.verified-checkbox').filter(function() {return !$(this).closest('.data-input-row').hasClass('hidden')});
+	if (visibleCheckboxes.not(':checked').length) {
 		if (!window.confirm('Some values are not yet verified. Are you sure you want to continue?')) return;
 	}
 
 	const selectedDate = new Date($('#month-select').val() + 'T12:00:00.000-08:00')
 	const monthName = selectedDate.toLocaleString('default', { month: 'long' });
 	const irmaURL = `https://irma.nps.gov/STATS/Data/Input?month=${selectedDate.getMonth() + 1}&year=${selectedDate.getFullYear()}&unit=DENA`;
-	//$(window).open(irmaURL, '_blank');
 
 	var jsString = ''//`document.getElementById('periodComboId-inputEl').value = '${monthName}, ${selectedDate.getFullYear()}';\n`
 
-	$('.data-input-row').each(function() {
+	$('.data-input-row').filter(function(_, el) {return !$(el).hasClass('form-data-header') && !$(el).hasClass('form-data-footer')}).each(function() {
 		const thisInput = $(this).find('.data-input');
-		const thisValue = thisInput.val();
-		if (thisValue === "" || thisValue === undefined) return;
+		var thisValue = thisInput.val();
+		if (thisValue === "" || thisValue === undefined) thisValue = 0;//return;
 		const irmaElementID = thisInput.attr('data-irma-element');
 		jsString += `document.getElementById(${irmaElementID}).value = ${thisValue};\n`;
 		const isEstimated = $('#' + thisInput.attr('id').replace('input-', 'checkbox-estimated-')).prop('checked')
@@ -631,6 +664,19 @@ function generateJavascript(event) {
 	$('#js-text')
 		.text(jsString)
 		.removeClass('hidden');
+
+	// Select the text field
+	copyToClipboard('js-text', deselect=false);
+	
+	// Open the IRMA STATS page
+	var win = window.open(irmaURL, '_blank');
+	if (win) {
+	    //Browser has allowed it to be opened
+	    win.focus();
+	} else {
+	    //Browser has blocked it
+	    alert(`Your browser has blocked this page from opening the IRMA STATS page. Please allow popups or navigate to ${irmaURL} manually.`);
+	}
 
 }
 
