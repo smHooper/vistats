@@ -93,6 +93,10 @@ def main(path, count_date):
     data['nights'] = (data.end_date - data.start_date).dt.days
     data = data.loc[data.nights > 1]
 
+    if len(data) == 0:
+        raise RuntimeError(f'No campground visits found in {filename} between {month_start.strftime("%B %d, %Y")} and'
+                           f' {month_end.strftime("%B %d, %Y")}')
+
     # Group by site and site type to get counts for each field of interest, then clean up:
     #   1. groupby on two columns creates a multi-index, so reset_index() to get site and site_type as columns
     #   2. melt unpivots to get a row for each value in tent and vehicle column counts
@@ -113,7 +117,7 @@ def main(path, count_date):
         .astype(int) \
         .to_json()
 
-    print(json_str) # need to send it to stdout for php to receive it
+    #print(json_str) # need to send it to stdout for php to receive it
 
     return json_str
 
