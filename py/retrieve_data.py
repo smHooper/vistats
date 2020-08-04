@@ -12,6 +12,8 @@ import sqlalchemy
 from dateutil import relativedelta
 import pandas as pd
 
+pd.set_option('display.max_columns', None)
+
 BC_PERMIT_DB_NORTH_PATH = r"\\inpdenafiles\parkwide\Backcountry\Backcountry Permit Database\BC Permits Data %s.mdb"
 BC_PERMIT_DB_SOUTH_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\Backcountry Permit Database\BC Permits Data %s.mdb"
 CLIMBING_PERMIT_DB_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\backend\DenaliNPSData.mdb"
@@ -374,6 +376,23 @@ def main(param_file, log_dir, current_date=None):
         WHERE datetime BETWEEN '{start}' AND '{end}'
         GROUP BY extract(month FROM datetime)
     '''
+    reserved_pov_sql = '''
+        SELECT 'reserved_pov_passengers' AS value_label_id, sum(n_passengers) AS value 
+        FROM nps_approved 
+        WHERE 
+            datetime BETWEEN '{start}' AND '{end}' AND
+            approved_type = 'REC' 
+        GROUP BY value_label_id, extract(month FROM datetime)
+    '''.format(start=start_date, end=end_date)
+    guided_cua_sql = '''
+        SELECT 'guided_cua_pov_passengers' AS value_label_id, sum(n_passengers) AS value 
+        FROM nps_approved 
+        WHERE 
+            datetime BETWEEN '{start}' AND '{end}' AND
+            approved_type = 'GUI' 
+        GROUP BY value_label_id, extract(month FROM datetime)
+    '''.format(start=start_date, end=end_date)
+
     # Only run this query for summer months
     if season == 'summer':
         try:
@@ -386,7 +405,8 @@ def main(param_file, log_dir, current_date=None):
                 road_lottery = pd.read_sql(lottery_sql.format(start=start_date, end=end_date), conn)
                 accessibility = pd.read_sql(sql_template.format(label='accessibility_permit_passengers', table='accessibility', start=start_date, end=end_date), conn)
                 photographers = pd.read_sql(sql_template.format(label='pro_photographers', table='photographers', start=start_date, end=end_date), conn)
-                tek = pd.read_sql(sql_template.format(label='tek_passengers', table='photographers', start=start_date, end=end_date), conn)
+                reserved_povs = pd.read_sql(reserved_pov_sql, conn)
+                guided_cua_povs = pd.read_sql(guided_cua_sql, conn)
 
                 employees = pd.read_sql(sql_template.format(label='non_rec_users', table='employee_vehicles', start=start_date, end=end_date), conn)
                 researchers = pd.read_sql(research_sql, conn)
@@ -396,7 +416,7 @@ def main(param_file, log_dir, current_date=None):
 
                 lodge_buses = pd.read_sql(lodge_bus_sql, conn)\
                     .replace({'value_label_id': LODGE_BUS_FIELDS})
-            data.extend([bikes, road_lottery, accessibility, photographers, tek, non_rec_users, lodge_buses])
+            data.extend([bikes, road_lottery, accessibility, photographers, non_rec_users, lodge_buses, reserved_povs, guided_cua_povs])
         except:
             log['errors'].append({'action': 'querying Savage DB',
                                   'error': traceback.format_exc()
@@ -421,13 +441,13 @@ def main(param_file, log_dir, current_date=None):
             flights.departure_datetime BETWEEN '{start}' AND '{end}' AND
             flights.operator_code='KAT'  
         GROUP BY value_label_id
-    '''
+    '''.format(start=start_date, end=end_date)
     try:
         engine = sqlalchemy.create_engine(
             'postgresql://{username}:{password}@{ip_address}:{port}/{db_name}'.format(**params['landings_db_credentials'])
         )
         with engine.connect() as conn:
-            data.append([
+            data.extend([
                 pd.read_sql(landings_sql, conn),
                 pd.read_sql(north_side_sql, conn)
             ])
