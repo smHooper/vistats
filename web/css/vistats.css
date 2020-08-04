@@ -62,6 +62,11 @@ button:hover {
 	height:20px;
 }
 
+.labeled-checkbox {
+	padding-left: 35px;
+	padding-right: 50px;
+}
+
 /* Hide the browser's default checkbox */
 .checkmark-container input {
 	position: absolute;

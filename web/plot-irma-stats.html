@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset='utf-8'>
+	<meta name="viewport" content="width=device-width,height=device-height, user-scalable=no" />
+	<title>IRMA Stats plot</title>
+	<link rel="icon" type="image/x-icon" href="favicon.ico"/>
+
+	<link href="c3-0.7.18/c3.css" rel="stylesheet">
+	<script src="js/d3.min.js" charset="utf-8"></script>
+	<script src="c3-0.7.18/c3.min.js"></script>
+
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+	
+	<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.3.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css"/>
+	<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.3.0/js/bootstrap.min.js"></script>
+	
+	<link href="//netdna.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.css" rel="stylesheet">
+
+	<link rel="stylesheet" href="css/plot-irma-stats.css">
+	<link rel="stylesheet" href="css/vistats.css">
+</head>
+
+<body>
+
+	 <!-- loading indicator should be hidden and will only be shown when loading data -->
+	<div id="loading-indicator-background" style="display: none;"></div>
+	<div id="loading-indicator" style="display: none;"></div>
+
+	<div class="plot-header-menu">
+		<a class="home-button" role="button" href="vistats-plot.html"></a>
+	</div>
+
+	<div class="main-container">
+		<div class="content-container">
+
+			<div class="chart-header">
+				<div class="chart-field-container">
+					<label class="chart-field-label">query</label>
+					<select class="chart-field-input" id="select-query" value="Recreation visits">
+						<option clas="chart-select-option" value="Recreation visits">Recreation visits</option>
+						<option clas="chart-select-option" value="Non-recreation visits">Non-recreation visits</option>
+					</select>
+				</div>
+				<div class="chart-field-container">
+					<label class="chart-field-label">time step</label>
+					<select class="chart-field-input" id="select-time_step">
+						<option clas="chart-select-option" value="month">month</option>
+						<option clas="chart-select-option" value="year">year</option>
+					</select>
+				</div>
+				<div class="chart-field-container">
+					<label class="chart-field-label">start date</label>
+					<input class="chart-field-input" type="month" id="input-start_date" value="2019-01">
+				</div>
+				<div class="chart-field-container">
+					<label class="chart-field-label">end</label>
+					<input class="chart-field-input" type="month" id="input-end_date" value="2020-02">
+				</div>
+			</div>
+			
+			<div class="row2" id="chart">
+			</div>
+		
+			<div class="chart-footer" id="chart-footer">
+				<div class="chart-field-container">
+					<label class="chart-field-label">chart type</label>
+					<select class="chart-field-input" id="select-chart_type" value="stacked bar">
+						<option clas="chart-select-option" value="stacked bar">stacked bar</option>
+						<option clas="chart-select-option" value="grouped bar">grouped bar</option>
+						<option clas="chart-select-option" value="line">line</option>
+					</select>
+				</div>
+				<div class="chart-field-container vertically-centered">
+					<label class="checkmark-container labeled-checkbox">horizontal grid
+						<input class="input-checkbox" type="checkbox" checked="checked" id="checkmark-grid">
+						<span class="checkmark"></span>
+					</label>
+				</div>
+				<div class="chart-field-container vertically-centered">
+					<label class="checkmark-container labeled-checkbox">apply multipliers
+						<input class="input-checkbox" type="checkbox" checked="checked" id="checkmark-multiplier">
+						<span class="checkmark"></span>
+					</label>
+				</div>
+				<div class="chart-field-container vertically-centered">
+					<label class="checkmark-container labeled-checkbox">option3
+						<input class="input-checkbox" type="checkbox" checked="checked" id="checkmark-option3">
+						<span class="checkmark"></span>
+					</label>
+				</div>
+			</div>
+
+			<div id="run-button-container">
+				<label class="chart-field-label"></label>
+				<button class="chart-field-input generic-button chart-button" id="button-run" onclick="runQuery()">run query</button>
+			</div>
+			
+			<div class="row2" id="legend-container">
+				<label class="legend-title">Legend</label>
+				<div class="legend-body"></div>
+			</div>
+
+			<div id="content-footer">
+				<div class="chart-field-container vertically-centered">
+					<label class="chart-field-label"></label>
+					<select class="chart-field-input" id="select-export_type" value="chart and data">
+						<option clas="chart-select-option" value="chart and data">chart and data</option>
+						<option clas="chart-select-option" value="chart only">chart only</option>
+						<option clas="chart-select-option" value="data only">data only</option>
+					</select>
+				</div>
+				<div class="chart-field-container vertically-centered">
+					<button class="chart-field-input generic-button chart-button" id="button-export" onclick="">export</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script src="js/jquery.csv.min.js"></script>
+	<script src="js/plot.js"></script>
+
+	<script type="text/javascript"></script>
+</body>
+
+
+</html>

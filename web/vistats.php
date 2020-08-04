@@ -35,20 +35,37 @@ function runQueryWithinTransaction($conn, $queryStr, $parameters=array()) {
 }
 
 
+function queryMSSQL($conn, $sql) {
+	
+	$stmt = sqlsrv_query($conn, $sql);
+	
+	if ($stmt === false) {
+		return sqlsrv_errors();
+	}
+
+	$data = array();
+	while( $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+		$data[] = $row;
+	}
+
+	return $data;
+}
+
+
 function runCmd($cmd) {
 	// can't get this to work for python commands because conda throws
 	// an error in conda-script (can't import cli.main)
 	$process = proc_open(
 		$cmd, 
 		array(
-			0 => array("pipe", "w"), //STDIN
+			0 => array("pipe", "r"), //STDIN
 		    1 => array('pipe', 'w'), // STDOUT
 		    2 => array('pipe', 'w')  // STDERR
 		), 
 		$pipes,
 		NULL,
 		NULL,
-		array('bypass_shell' => true)
+		array('bypass_shell' => false)
 	);
 
 	$resultObj; 
@@ -87,6 +104,35 @@ function deleteFile($filePath) {
 }
 
 
+if (isset($_POST['submit']) && isset($_FILES['uploadedFile'])) {
+	
+	$fileName = preg_replace('/[^\w.]+/', '_', basename($_FILES['uploadedFile']['name']));
+	$uploadFilePath = "temp_files/$fileName";
+	
+	if (move_uploaded_file($_FILES['uploadedFile']['tmp_name'], $uploadFilePath)) {
+		
+		if (isset($_POST['reportType'])) {
+			// this is from the import-data-modal form
+			$countDate = $_POST['countDate'];
+			$scriptName = strtolower($_POST['reportType']) === 'campgrounds' ? 'read_campground_report.py' : 'read_bus_ridership_report.py';
+			$cmd = "conda activate d:/vistats/vistats && python ../py/$scriptName \"$uploadFilePath\" $countDate 2>&1 && conda deactivate";
+			echo shell_exec($cmd);
+			deleteFile($uploadFilePath);
+			//print_r($cmd);
+		} else {
+			echo "ERROR: file upload for this form is not set up yet";
+			deleteFile($uploadFilePath);
+		}
+	} else {
+		echo "ERROR: file uploaded was not valid: $uploadFilePath ";
+	}
+
+}
+
+if (isset($_POST['whoami'])) {
+	echo runCmd('whoami');
+}
+
 if (isset($_POST['action'])) {
 	
 	// retrieve the names of all files that need to be edited
@@ -119,21 +165,23 @@ if (isset($_POST['action'])) {
 	
 	if ($_POST['action'] == 'query') {
 
-		if (isset($_POST['queryString'])) {
-			$result = runQuery($dbhost, $dbport, $dbname, $username, $password, $_POST['queryString']);
-			echo json_encode($result);
-		} else {
-			echo "php query failed";//false;
-		}
-	}
+		if (isset($_POST['queryString']) && isset($_POST['db'])) {
+			if ($_POST['db'] == 'vistats') {
+				$result = runQuery($dbhost, $dbport, $dbname, $username, $password, $_POST['queryString']);
+				echo json_encode($result);
+			} else if ($_POST['db'] == 'irma') {
+				$conn = sqlsrv_connect($irmaServerName, $irmaConnectionInfo);
+				if (!$conn) {
+					echo "ERROR: could not connect to IRMA Stats DB because " + sqlsrv_errors();
+				}
+				$result = queryMSSQL($conn, $_POST['queryString']);
+				echo json_encode($result);
+			} else {
+				echo "ERROR: db name not understood";
+			}
 
-	if ($_POST['action'] == 'landingsAdminQuery') {
-
-		if (isset($_POST['queryString'])) {
-			$result = runQuery($dbhost, $dbport, $_POST['dbname'], $landings_admin_username, $landings_admin_password, $_POST['queryString']);
-			echo json_encode($result);
 		} else {
-			echo "php query failed";//false;
+			echo "ERROR: db or queryString not set";//false;
 		}
 	}
 
