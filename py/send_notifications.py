@@ -70,14 +70,14 @@ def send_notifications(param_file, count_date):
     except:
         raise RuntimeError(f'Could not parse {count_date} into a proper datetime')
 
+    season_field = 'is_summer' if count_datetime.month >= 5 and count_datetime.month <= 9 else 'is_winter'
+
     # Check if the values for the current month are verified for each role
     query_str = f'''
     	SELECT 
 			value_labels.id,
 			value_labels.dena_label,
 			value_labels.retrieve_data_label,
-			value_labels.is_summer,
-			value_labels.is_winter,
 			value_labels.source_tag AS role,
 			counts.verified,
 			counts.count_date
@@ -90,7 +90,9 @@ def send_notifications(param_file, count_date):
 						extract(month FROM count_periods.count_date) = {count_datetime.month}
 				) AS counts
 				ON value_labels.id = counts.value_label_id 
-        WHERE NOT counts.verified 
+        WHERE 
+            (NOT counts.verified OR counts.verified IS NULL) AND
+            value_labels.{season_field}
 		ORDER BY id;
     '''
     engine = sqlalchemy.create_engine(
