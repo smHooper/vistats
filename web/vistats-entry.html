@@ -27,7 +27,7 @@
 	<div style="display: flex; justify-content: center; width: 100%; height: 100%">
 		
 
-		<div class="background-blur" id="main-container">
+		<div class="background-blur vertical-scroll" id="main-container">
 			<div id="header-menu">
 				<div id="header-menu-content-container">
 					<div class="header-menu-item" id="username-container">
@@ -37,14 +37,14 @@
 				</div> 
 			</div>
 		
-			<form class="mx-0 px-0 form-input-container" id="input-form">
+			<form class="mx-0 px-0 form-input-container bottom-pinned" id="input-form">
 				<div class=form-header>
 					<div class='form-header-content-container'>
 						<h5 class='form-header-title'>Visitor use stats for: </h5>
 						<select id="month-select"></select>
 					</div>
 				</div>
-				<div class="form-data-container" id='input-table'>
+				<div class="form-data-container vertical-scroll" id='input-table'>
 					<div class="form-data-header data-input-row">
 						<div class="label-column data-input-cell"></div>
 						<div class="input-column data-input-cell"></div>
@@ -52,7 +52,7 @@
 						<div class="is-verified-column data-input-cell">Verified?</div>
 						<div class="verified-by-column data-input-cell">Verified by</div>
 					</div>
-					<div class="form-data-body">
+					<div class="form-data-body vertical-scroll">
 						<!--filled on load-->
 					</div>
 					<div class="form-data-footer data-input-row">
@@ -90,39 +90,45 @@
 		$(document).ready(function() {
 			$(window).resize(resizeColumns);
 			showLoadingIndicator();
-			$.when(
-				queryDB(`SELECT id, count_date FROM count_periods`)
-					.then((queryResultString)=> {$.parseJSON(queryResultString).forEach(
-						(obj) => {COUNT_PERIODS[obj.count_date] = obj.id})}),
-				$.ajax({
-					url: 'vistats.php',
-					method: 'POST',
-					data: {action: 'getUser'},
-					cache: false,
-					success: function(usernameString){
-						// If authentication failed, do nothing
-						if (usernameString)  {
-							username = usernameString.trim();
-							$('#username').text(username);
-							getUserRoles()
-								.then(
-									(jsonString) => {
-									USER_ROLES = $.parseJSON(jsonString);
-									configureForm().then(resizeColumns);
 
-								})
-						} else {
-							$('#username-icon').addClass('hidden')
-							alert(`Your username could not be retreived so you won't be able to make any edits`)
-							$('#input-form').addClass('hidden')
+			fillSelectOptions(
+				'month-select', 
+				`SELECT count_date AS value, to_char(count_date, 'FMMonth, YYYY') AS name FROM count_periods ORDER BY count_date DESC;`, 
+				'select-option'
+			).then( () => {
+				$.when(
+					queryDB(`SELECT id, count_date FROM count_periods`)
+						.then((queryResultString)=> {$.parseJSON(queryResultString).forEach(
+							(obj) => {COUNT_PERIODS[obj.count_date] = obj.id})}),
+					$.ajax({
+						url: 'vistats.php',
+						method: 'POST',
+						data: {action: 'getUser'},
+						cache: false,
+						success: function(usernameString){
+							// If authentication failed, do nothing
+							if (usernameString)  {
+								username = usernameString.trim();
+								$('#username').text(username);
+								getUserRoles()
+									.then(
+										(jsonString) => {
+										USER_ROLES = $.parseJSON(jsonString);
+										configureForm().then(resizeColumns);
+
+									})
+							} else {
+								$('#username-icon').addClass('hidden')
+								alert(`Your username could not be retreived so you won't be able to make any edits`)
+								$('#input-form').addClass('hidden')
+							}
 						}
-					}
-				}),
-				fillSelectOptions('month-select', `SELECT count_date AS value, to_char(count_date, 'FMMonth, YYYY') AS name FROM count_periods ORDER BY count_date DESC;`, 'select-option')
-			)
-			.then(function() {
-				hideLoadingIndicator();
-				$('#month-select').change(function() {onMonthSelectChange()});
+					})
+				)
+				.then(function() {
+					hideLoadingIndicator();
+					$('#month-select').change(function() {onMonthSelectChange()});
+				});
 			});
 
 			$(window).on('beforeunload', function(event) {

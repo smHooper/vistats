@@ -3,6 +3,7 @@
 var USER_ROLES = {}
 var COUNT_PERIODS = {}; // stores id, count_date from count_periods table
 var DATA = {}; // stores queried data
+var CURRENT_DATE = '1970-1-1';
 
 function queryDB(sql) {
 
@@ -142,17 +143,61 @@ function resizeColumns() {
 		let maxWidth = Math.max.apply(Math, $('.' + className).map(function(){return $(this).width()}).get())
 		$('.' + className).each((_, el) => {$(el).width(className === 'label-column' ? maxWidth + 20 : maxWidth)});
 	})
+
+	resizeFormHeight();
+}
+
+
+function resizeFormHeight() {
+
+	// The body of the form will stretch to the max allowable size, so check 
+	const nFields = $('.data-input-row').not('.hidden, .form-data-footer, .form-data-header').length;
+	const scrollHeight = nFields * $('.data-input-row').css('height').replace('px', ''); // can't use .scrollHeight prop because it includes all the hidden fields
+	const availableSpace = $('#main-container').height() - (
+			$('.form-footer').height() + 
+			Math.floor($('.form-data-footer').css('height').replace('px', '')) + 
+			Math.floor($('.form-data-header').css('height').replace('px', '')) + 
+			Math.floor($('.form-header').css('height').replace('px', '')) + 
+			Math.floor($('#input-form').css('top').replace('px', ''))
+		);
+
+	// The screen has enough space for all of the fields, so let the foot float freely 
+	if (scrollHeight <= availableSpace) {
+		$('#input-form').removeClass('bottom-pinned');
+		$('.form-data-container').removeClass('vertical-scroll');//scroll bar will still show because flexbox adds a tiny fraction to height
+	// The screen can't fit everything, so pin the bottom of the form to the bottom of the screen
+	} else {
+		$('#input-form').addClass('bottom-pinned');
+		$('.form-data-container').addClass('vertical-scroll');
+	}
 }
 
 
 function configureForm(periodDate) {
 
-	$('#input-table > .form-data-body').empty()
+	$('#input-table > .form-data-body').empty();
 
+	// If no periodDate was given, get the first date of the current month
 	if (periodDate === undefined) periodDate = getMostRecentPeriodDate();
-	const periodMonth = periodDate.getMonth() + 1
 
+	// Check that periodDate is actually an option to select (retrieve_data.py 
+	//	has been run for this month). If it isn't, set the periodDate to the 
+	//	most recent option in the dropdown menu
+	const periodDateStr = `${periodDate.getFullYear()}-${('0' + (periodDate.getMonth() + 1)).slice(-2)}-01`;
+	const dateOptions = $('#month-select')
+		.find('.select-option')
+		.map((_, el) => {
+			return $(el).val();
+		})
+		.get();
+	if (!dateOptions.includes(periodDateStr)) {
+		periodDate = new Date(dateOptions[0] + ' 12:00');
+	}
+	const periodMonth = periodDate.getMonth() + 1;
+	
 	var currentUser = $('#username').text();
+
+	CURRENT_DATE = $('#month-select').val();
 
 	if (USER_ROLES[currentUser] === undefined) {
 		alert(`You are currently logged in as '${currentUser}', but this user does not have any Visitor Use Stat roles assigned. Either log into your computer as a different user and re-load this webpage or contact the site administrator.`)
@@ -191,9 +236,9 @@ function configureForm(periodDate) {
 				) AS counts
 				ON value_labels.id = counts.value_label_id 
 		WHERE irma_html_element_id IS NOT NULL AND irma_html_element_id <> ''
-		ORDER BY id;
+		ORDER BY sort_order;
 	`
-	let deferred = queryDB(sql)
+	let deferred = queryDB(sql);
 	deferred.then(
 		doneFilter=function(queryResultString){
 			if (queryResultString.startsWith('ERROR') || queryResultString === '["query returned an empty result"]') { 
@@ -262,7 +307,6 @@ function configureForm(periodDate) {
 			})
 
 			setVerifyAllButtonText();
-
 		},
 		failFilter=function(xhr, status, error) {
 			console.log(`configuring form failed with status ${status} because ${error} with query:\n${sql}`)
@@ -284,7 +328,10 @@ function confirmDiscardEdits() {
 
 function onMonthSelectChange() {
 	
-	if (!confirmDiscardEdits()) return;
+	if (!confirmDiscardEdits()) {
+		$('#month-select').val(CURRENT_DATE);
+		return;
+	}
 
 	showLoadingIndicator();
 	
@@ -297,7 +344,9 @@ function onMonthSelectChange() {
 		});
 	
 	// Make sure any JS text is cleared
-	$('#js-text').text('');
+	$('#js-text').text('').addClass('hidden');
+
+	CURRENT_DATE = $('#month-select').val();
 
 }
 
@@ -316,10 +365,12 @@ function onDataInputChange(inputID, promptIfVerified=true) {
 	const verifiedCheckbox = parentRow.find('.verified-checkbox');
 	const verifiedBy = parentRow.find('.verified-by-label').text();
 	const labelID = parentRow.attr('data-label-id');
+	const username = $('#username').text();
 	var commitChange = true;
+
 	//If this value has already been verified (by someone else), confirm the change
 	//if ()
-	if (verifiedCheckbox.prop('checked') && verifiedBy !== $('#username').text() && promptIfVerified) {
+	if (verifiedCheckbox.prop('checked') && verifiedBy !== username && promptIfVerified) {
 		commitChange = window.confirm(`Are you sure you want to change this value? It was already verified by ${verifiedBy}`);
 		if (commitChange) { 
 			DATA[labelID].value = thisInput.val();
@@ -339,6 +390,7 @@ function onDataInputChange(inputID, promptIfVerified=true) {
 		DATA[labelID].is_estimated = parentRow.find('.estimated-checkbox').prop('checked');
 		DATA[labelID].verified = verifiedCheckbox.prop('checked');
 		DATA[labelID].period_id = COUNT_PERIODS[$('#month-select').val()];
+		DATA[labelID].entered_by = username;
 		if (DATA[labelID].verified) {
 			DATA[labelID].verified_by = verifiedBy;
 			DATA[labelID].verified_time = getFormattedTimestamp();
@@ -397,14 +449,14 @@ function onSaveClick(event) {
 			return !(
 				$(this).hasClass('form-data-header') || 
 				$(this).hasClass('form-data-footer') || 
-				$(this).hasCLass('hidden')
+				$(this).hasClass('hidden')
 			)
 		})
 		.each(function() {
 		const thisID = $(this).attr('data-label-id');
 		const thisObj = DATA[thisID];
 		let dataValue = thisObj.value;
-		// If there's no data value in the DATA object, a row for this field doesn't exisit in the DB
+		
 		if (parseInt(thisObj.is_new_value)) {
 			dataValue = thisObj.value;
 			
@@ -451,9 +503,9 @@ function onSaveClick(event) {
         		return false; // Save was unsuccessful
         	} else {
         		$('.data-dirty').removeClass('data-dirty')
-        		return true; // Save was successful
         		// Set each INSERTed object's is_new_value property to 0
         		newInserts.forEach((id) => {DATA[id].is_new_value = 0});
+        		return true; // Save was successful
         	}
         	hideLoadingIndicator();
         }
@@ -499,6 +551,8 @@ function loadJVReport(responseText, statusText, xhr, $form) {
 
 	if (pythonError !== undefined) {
 		alert('An error occurred while trying to load the report: ' + responseText);
+	} else if (responseText.startsWith('ERROR')) {
+		alert('A server error occurred while trying to load the report: ' + responseText);
 	} else {
 		// The script ran successfull and returned a JSON string
 		data = $.parseJSON(responseText);
@@ -514,8 +568,8 @@ function loadJVReport(responseText, statusText, xhr, $form) {
 			thisRow.find('.verified-checkbox').prop('checked', true);
 
 			// Update global DATA object
-			onDataInputChange('input-' + retrieve_data_label, promptIfVerified=false);
 			thisRow.find('.verified-by-label').text(username);
+			onDataInputChange('input-' + retrieve_data_label, promptIfVerified=false);
 		}
 
 		closeImportDataModal();

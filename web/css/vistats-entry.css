@@ -19,6 +19,10 @@ body {
 	width: 100%;
 }
 
+.vertical-scroll {
+	overflow-y: auto;
+}
+
 #main-container {
 	display: flex; 
     justify-content: center;
@@ -30,7 +34,7 @@ body {
 	height: 100%;
 	/*position: absolute;*/
 	background-color: rgba(255, 255, 255, 0.7);
-	overflow-y: auto;
+	/*overflow-y: auto;*/
 }
 
 
@@ -86,27 +90,35 @@ body {
 
 }
 
+.bottom-pinned {
+	/*utility class to set height of main form appropriately*/
+	bottom: 0px;
+}
+
 .form-input-container {
 	width: 840px;
-	margin-top: 25px;
-	/*max-height: 95%;/*height: 90%;*/
+	/*margin-top: 25px;*/
     display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
+    /*justify-content: center;*/
+    /*flex-wrap: wrap;*/
     align-content: start;
-    max-height: 85%;
-    /*position: absolute;
-   	bottom: 0px;
-	top: 40px;*/
+    /*max-height: 85%;*/
+	flex-direction: column;
+    justify-content: start;
+    align-items: center;
+    flex-wrap: nowrap;
+    top: 65px;
+    position: absolute;
 }
 
 .form-header {
 	width: 100%;
-	height: 60px;
+	height: 75px;
 	line-height: 60px;
 	display: flex;
 	justify-content: center;
-	margin-bottom: 15px;
+	padding-bottom: 15px;
+	flex: 0 0 auto;
 }
 
 .form-header-content-container {
@@ -146,21 +158,29 @@ body {
 }
 
 .form-data-container {
-	max-height: 90%;
+	/*max-height: 90%;*/
+    flex: 10 1 auto;
+    max-height: 4000px; /*larger than any screen*/
+    display: flex;
+    justify-content: start;
+    align-items: stretch;
+    /*overflow-y: auto;*/
+    flex-direction: column;
 }
 
 .form-data-header {
-
+	flex: 0 auto;
 }
 
 .form-data-body {
-	overflow-y: auto;
+	/*overflow-y: auto;*/
 	width: 100%;
-	max-height: 85%;
+	/*max-height: 85%;*/
+	flex: 30;
 }
 
 .form-data-footer {
-
+	flex: 1 auto;
 }
 
 table.tbody-scroll > tbody, table.tbody-scroll > thead, table.tbody-scroll > tfoot {
@@ -168,7 +188,7 @@ table.tbody-scroll > tbody, table.tbody-scroll > thead, table.tbody-scroll > tfo
 }
 
 table.tbody-scroll > tbody {
-	overflow-y: auto;
+	/*overflow-y: auto;*/
 	max-height: 87%;
 }
 
@@ -251,7 +271,8 @@ table.tbody-scroll {
 	width: 100%;
 	display: flex;
 	justify-content: center;
-	margin-top: 40px;
+	flex: 0 0 auto;
+	/*margin-top: 40px;*/
 }
 
 button:hover {
@@ -287,13 +308,13 @@ button:hover {
 }
 
 #js-text-container {
-	margin-top: 20px;
+	padding-top: 20px;
 	width: 100%;
 }
 
 #js-text {
 	width: 100%;
-	padding: 20px;
+	/*padding: 20px;*/
 	background-color: rgba(255, 255, 255, 0.5);
 }
 
