@@ -39,7 +39,7 @@ function getPivotColumns() {
 }
 
 
-function plotData(data, labels, pivotColumns) {
+function plotData(data, labels, pivotColumns, colors) {
 
 
 	let xTickLabels = [];
@@ -54,7 +54,9 @@ function plotData(data, labels, pivotColumns) {
 		data: {
 			columns: data,
 			type: 'bar',
-			groups: [labels]
+			groups: [labels],
+			colors: colors,
+			order: null
 		},
 		legend: {
 			show: false
@@ -62,7 +64,11 @@ function plotData(data, labels, pivotColumns) {
     axis : {
         x: {
         	type: 'category',
-            categories: xTickLabels
+            categories: xTickLabels,
+            tick: {
+            	rotate: -45,
+                multiline: false
+            }
         }
     }
 	});
@@ -77,7 +83,7 @@ function plotData(data, labels, pivotColumns) {
 	// Add containers for each legend item and bind events to them
 	var legendItems = d3.select('.legend-body')
 		.selectAll('span')
-		.data(labels)
+		.data(labels.reverse())
 		.enter().append('div').attr('class', 'legend-item-container')
 		.on('mouseover', function(id) {
 			chart.focus(id);
@@ -160,8 +166,7 @@ function queryIRMA(pivotColumns, fieldIDStr) {
 					console.log(`error getting query parameters: ${queryResultString}`);
 				} else {
 					const queryResult = $.parseJSON(queryResultString);
-					var chartData = [];
-					var chartLabels = [];
+
 					for (id in QUERY_INFO){
 						const thisInfo = QUERY_INFO[id];
 						// Find the data row for this row in the queryInfo by comparing field IDs
@@ -208,12 +213,24 @@ function queryIRMA(pivotColumns, fieldIDStr) {
 							QUERY_DATA[thisID].data = thisRow;
 							QUERY_DATA[thisID].multipliers = theseMultipliers;
 							QUERY_DATA[thisID].label = thisInfo.label;
+							QUERY_DATA[thisID].color = thisInfo.color;
+							QUERY_DATA[thisID].sortOrder = thisInfo.sort_order;
 						}
 
 					};
 
-					// loop through QUERY_DATA and subtract as necessary
-					for (id in QUERY_DATA){
+					// First loop through QUERY_DATA and sort IDs by their .sort_order
+					var sortOrder = [];
+					for (id in QUERY_DATA) {
+						sortOrder[QUERY_DATA[id].sortOrder] = id;
+					}
+
+					var chartData = [];
+					var chartLabels = [];
+					var chartColors = {};
+					// Then, loop through QUERY_DATA and subtract as necessary
+					for (s in sortOrder){
+						const id = sortOrder[s];
 						let data = QUERY_DATA[id];
 						// data.modifyBy is an array of arrays with length data.length, so loop through each individual array and 
 						for (i in data.modifyBy) {
@@ -232,10 +249,11 @@ function queryIRMA(pivotColumns, fieldIDStr) {
 
 						chartData.push([data.label].concat(data.data));
 						chartLabels.push(data.label);
+						chartColors[data.label] = data.color;
 					}
 
 					// then loop through again and compose chartData
-					plotData(chartData, chartLabels, pivotColumns);
+					plotData(chartData, chartLabels, pivotColumns, chartColors);
 				}
 			}, 
 			failFilter=function(xhr, status, error) {
@@ -258,6 +276,7 @@ function runQuery(){
 		FROM irma_query_names 
 		INNER JOIN irma_query_info ON irma_query_names.id=irma_query_info.query_id 
 		WHERE irma_query_names.name='${queryName}'
+		ORDER BY sort_order
 	;`;
 	var deferred = queryDB(sql, 'vistats');
 	deferred.then(
@@ -270,7 +289,6 @@ function runQuery(){
 				let fieldIDs = [];
 				queryResult.forEach(function(queryRow){
 					fieldIDs.push(queryRow.field_id);
-
 				})
 				fields = `'${fieldIDs.join("', '")}'`;
 				queryResult.forEach(function(row) {
