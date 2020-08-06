@@ -19,6 +19,7 @@ BC_PERMIT_DB_SOUTH_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\Backcountry Perm
 CLIMBING_PERMIT_DB_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\backend\DenaliNPSData.mdb"
 MSLC_VISITOR_COUNT_PATH = r"\\inpdenafiles\teams\Interp\Ops All, Statistics\MSLC Winter VC, Education\* Winter VC Stats.xlsx"
 
+LOG_DIR = r"\\inpdenards\vistats\retrieve_data_logs"
 
 VEA_LOCATION_NAMES = {
     'Winter Visitor Center': 'mslc_visitors',
@@ -87,7 +88,7 @@ def read_json_params(params_json):
         params = json.load(j)
     missing = required.loc[~required.isin(params.keys())]
     if len(missing):
-        if 'log_dir' in params.keys():
+        if 'LOG_DIR' in params.keys():
             msg = 'Invalid config JSON: {file}. It must contain all of "{required}" but "{missing}" are missing'\
                          .format(file=params_json, required='", "'.join(required), missing='", "'.join(missing))
         raise ValueError(msg)
@@ -95,14 +96,14 @@ def read_json_params(params_json):
     return params
 
 
-def write_log(log, log_dir, timestamp):
-    log_file_path = os.path.join(log_dir, '{0}_log_{1}.json'.format(os.path.basename(__file__).replace('.py', ''),
+def write_log(log, LOG_DIR, timestamp):
+    log_file_path = os.path.join(LOG_DIR, '{0}_log_{1}.json'.format(os.path.basename(__file__).replace('.py', ''),
                                                                     re.sub('\D', '', timestamp)))
     with open(log_file_path, 'w') as f:
         json.dump(log, f, indent=4)
 
 
-def main(param_file, log_dir, current_date=None):
+def main(param_file, current_date=None):
 
     now = datetime.datetime.now()
     if current_date:
@@ -122,8 +123,8 @@ def main(param_file, log_dir, current_date=None):
     season = 'summer' if query_month in range(5, 10) else 'winter'
 
     # Make the log dir in case it doesn't already exist and set up a log dictionary for storing errors/messages
-    if not os.path.isdir(log_dir):
-        os.makedirs(log_dir)
+    if not os.path.isdir(LOG_DIR):
+        os.makedirs(LOG_DIR)
 
     log = {
         'run_time': now.strftime('%Y-%m-%d %H:%M'),
@@ -497,7 +498,7 @@ def main(param_file, log_dir, current_date=None):
                               'error': traceback.format_exc()
                               })
 
-    write_log(log, log_dir, now.strftime('%Y%m%d-%H%M'))
+    write_log(log, LOG_DIR, now.strftime('%Y%m%d-%H%M'))
 
 
 if __name__ == '__main__':
