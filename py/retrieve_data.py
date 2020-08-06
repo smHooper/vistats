@@ -173,6 +173,7 @@ def main(param_file, current_date=None):
                                     .format(side=side, path=bc_permit_db_path)
                                   })
         else:
+            bc_stats = pd.DataFrame()
             try:
                 conn = pyodbc.connect(r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
                                       r'DBQ=%s' % (bc_permit_db_path))
@@ -182,12 +183,13 @@ def main(param_file, current_date=None):
                 log['errors'].append({'action': 'reading %s BC permit DB' % side,
                                       'error': traceback.format_exc()
                                       })
-            data.append(bc_stats\
-                            .rename(columns={c: c + '_{}_{}'.format(side, season) for c in bc_stats.columns})\
-                            .T\
-                            .reset_index()\
-                            .rename(columns={'index': 'value_label_id', 0: 'value'})
-                        )
+            if len(bc_stats):
+                data.append(bc_stats\
+                                .rename(columns={c: c + '_{}_{}'.format(side, season) for c in bc_stats.columns})\
+                                .T\
+                                .reset_index()\
+                                .rename(columns={'index': 'value_label_id', 0: 'value'})
+                            )
 
     ##############################################################################################################
     ################################### climbing permits #########################################################
