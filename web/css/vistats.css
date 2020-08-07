@@ -124,6 +124,30 @@ button:hover {
 }
 
 
+/*C3.js charts*/
+/* for some reason these don't work */
+.c3-axis-x .tick line {
+	display: none; /*remove ticks on x axis*/
+}
+
+.tick line {
+	display: none; /*remove ticks on x axis*/
+}
+
+.chart-title, .legend-title {
+	width: 100%;
+	text-align: center;
+	height: 60px;
+	line-height: 60px;
+	flex: 0 0 auto;
+}
+
+.vistats-chart {
+	width: 100%;
+	height: calc(100% - 60px);
+}
+
+
 /**** Loading indicator ******/
 @keyframes spin {
   0% { transform: rotate(0deg); }

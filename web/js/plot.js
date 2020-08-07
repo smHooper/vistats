@@ -4,6 +4,7 @@ var SUMMER_MONTHS = ['may', 'jun', 'jul', 'aug', 'sep'];
 
 var QUERY_INFO = {};
 var QUERY_DATA = {};
+var CHART;
 
 function queryDB(sql, dbName) {
 
@@ -39,6 +40,13 @@ function getPivotColumns() {
 }
 
 
+function getMaxXLabels(minSpacing=45) {
+
+	return Math.round($('#chart').width()/minSpacing);
+
+}
+
+
 function plotData(data, labels, pivotColumns, colors) {
 
 
@@ -49,7 +57,7 @@ function plotData(data, labels, pivotColumns, colors) {
 		xTickLabels.push(label);
 	}
 
-	var chart = c3.generate({
+	CHART = c3.generate({
 		bindto: '#chart',
 		data: {
 			columns: data,
@@ -61,20 +69,27 @@ function plotData(data, labels, pivotColumns, colors) {
 		legend: {
 			show: false
 		},
-    axis : {
-        x: {
-        	type: 'category',
-            categories: xTickLabels,
-            tick: {
-            	rotate: -45,
-                multiline: false
-            }
-        }
-    }
+	    axis : {
+	        x: {
+	        	type: 'category',
+	            categories: xTickLabels,
+	            tick: {
+	            	rotate: -45,
+	                multiline: false,
+	                culling: {max: getMaxXLabels()},
+	                outer: false
+	            }
+	        },
+	        y: {
+	            tick: {
+	                outer: false
+	            }
+	        }
+	    }
 	});
 
 	function toggle(id) {
-	    chart.toggle(id);
+	    CHART.toggle(id);
 	}
 
 	// Clear the legend
@@ -86,15 +101,15 @@ function plotData(data, labels, pivotColumns, colors) {
 		.data(labels.reverse())
 		.enter().append('div').attr('class', 'legend-item-container')
 		.on('mouseover', function(id) {
-			chart.focus(id);
+			CHART.focus(id);
 		})
 		.on('mouseout', function(id) {
-			chart.revert();
+			CHART.revert();
 		})
 	// Add the patches
 	legendItems.append('div').attr('class', 'legend-patch')
 		.each(function(id) {
-			d3.select(this).style('background-color', chart.color(id));
+			d3.select(this).style('background-color', CHART.color(id));
 		})
 	// Add the labels
 	legendItems.insert('label').attr('class', 'legend-label')
@@ -106,9 +121,29 @@ function plotData(data, labels, pivotColumns, colors) {
 		}
 	);
 
-	$('#legend-container').css('height', $('#chart').css('height'));
+	//$('#legend-container').css('height', $('#chart').css('height'));
+
+	$('.tick line').addClass('hidden');//manually hide because pure css doesn't work
+
+	var formatter = new Intl.DateTimeFormat('en', {month: 'long'});
+	const startDate = new Date($('#input-start_date').val() + ' 00:00');
+	const endDate =   new Date($('#input-end_date').val() + ' 00:00');
+
+	$('.chart-title').text(`${$('#select-query').val()}: ${formatter.format(startDate)}, ${startDate.getFullYear()}—${formatter.format(endDate)}, ${endDate.getFullYear()}`);
 
 }
+
+
+
+function resizeLayout() {
+	const $container = $('.chart-container');
+	const $title = $('.chart-title');
+	CHART.resize({
+		height: $container.height() - $title.css('height').replace('px', ''),
+		width: $container.width()
+	});
+}
+
 
 function queryIRMA(pivotColumns, fieldIDStr) {
 	/*

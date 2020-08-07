@@ -54,12 +54,15 @@
 					<input class="chart-field-input" type="month" id="input-start_date" value="2019-01">
 				</div>
 				<div class="chart-field-container">
-					<label class="chart-field-label">end</label>
+					<label class="chart-field-label">end date</label>
 					<input class="chart-field-input" type="month" id="input-end_date" value="2020-02">
 				</div>
 			</div>
 			
-			<div class="row2" id="chart">
+			<div class="row2 chart-container">
+				<h4 class="chart-title"></h4>
+				<div class="vistats-chart" id="chart">
+				</div>
 			</div>
 		
 			<div class="chart-footer" id="chart-footer">
@@ -119,8 +122,14 @@
 
 	<script src="js/jquery.csv.min.js"></script>
 	<script src="js/plot.js"></script>
+	<script src="js/vistats.js"></script>
 
-	<script type="text/javascript"></script>
+	<script type="text/javascript">
+		$(document).ready(function() {
+			$(window).resize(resizeLayout);
+		})
+
+	</script>
 </body>
 
 
