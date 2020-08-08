@@ -1,6 +1,8 @@
 import os
 import sys
 import json
+import shutil
+import tempfile
 import re
 import glob
 import traceback
@@ -103,6 +105,35 @@ def write_log(log, LOG_DIR, timestamp):
         json.dump(log, f, indent=4)
 
 
+def query_access_db(db_path, sql):
+    '''
+    Make a temporary copy of the access DB to prevent establishing an exclusive lock on a file that other people
+    might be using
+
+    :param db_path: str path to the original DB
+    :param sql: SQL statement
+    :return: pandas DataFrame of the SQL result
+    '''
+    # Copy to temp dir
+    temp_dir = tempfile.gettempdir()
+    temp_db_path = os.path.join(temp_dir, os.path.basename(db_path))
+    shutil.copy(db_path, temp_dir)
+
+    # Connect and run query
+    conn = pyodbc.connect(r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
+                          r'DBQ=%s' % (temp_db_path))
+    bc_stats = pd.read_sql(sql, conn)
+    conn.close()
+
+    # Try to delete the temp file
+    try:
+        os.remove(temp_db_path)
+    except:
+        pass
+
+    return bc_stats
+
+
 def main(param_file, current_date=None):
 
     now = datetime.datetime.now()
@@ -175,10 +206,7 @@ def main(param_file, current_date=None):
         else:
             bc_stats = pd.DataFrame()
             try:
-                conn = pyodbc.connect(r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
-                                      r'DBQ=%s' % (bc_permit_db_path))
-                bc_stats = pd.read_sql(users_sql, conn)
-                conn.close()
+                bc_stats = query_access_db(bc_permit_db_path, users_sql)
             except:
                 log['errors'].append({'action': 'reading %s BC permit DB' % side,
                                       'error': traceback.format_exc()
@@ -218,10 +246,7 @@ def main(param_file, current_date=None):
     else:
         user_nights = pd.DataFrame()
         try:
-            conn = pyodbc.connect(r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
-                                  r'DBQ=%s' % (CLIMBING_PERMIT_DB_PATH))
-            user_nights = pd.read_sql(sql, conn)
-            conn.close()
+            user_nights = query_access_db(CLIMBING_PERMIT_DB_PATH, sql)
         except:
             log['errors'].append({'action': 'querying climbing permit DB',
                                   'error': traceback.format_exc()
