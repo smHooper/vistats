@@ -311,16 +311,16 @@ button:hover {
 	bottom: 0;
 }
 
-#js-text-container {
+/*#js-text-container {
 	padding-top: 20px;
 	width: 100%;
 }
 
 #js-text {
 	width: 100%;
-	/*padding: 20px;*/
+	padding: 20px;
 	background-color: rgba(255, 255, 255, 0.5);
-}
+}*/
 
 /* Custom checkbox*/
 /* The container */
@@ -437,6 +437,10 @@ button:hover {
 
 .modal-background-dark {
 	background-color: black;
+    -webkit-animation-name: fadeIn;
+    -webkit-animation-duration: 0.4s;
+    animation-name: fadeIn;
+    animation-duration: 0.4s;
 }
 
 .modal {
@@ -445,24 +449,37 @@ button:hover {
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
-	/*background-color: #fefefe;*/
 	border-radius: 16px;
 	-webkit-animation-name: slideIn;
 	-webkit-animation-duration: 0.3s;
 	animation-name: slideIn;
 	animation-duration: 0.3s;
-	/*display: flex;
-	justify-content: center;
-	flex-wrap: wrap;*/
 	display: block;
 	padding: 25px;
-	
 }
 
-#import-data-modal {
+.modal-light {
 	width: 600px;
 	height: 330px;
 	background-color: rgb(233, 239, 241);
+}
+
+#js-text-modal {
+	width: 700px;
+	height: 800px;
+	display: flex;
+	flex-direction: column;
+}
+
+#js-text {
+	padding: 50px;
+	background-color: rgba(255, 255, 255, 0.5);
+	overflow-y: auto;
+	flex: 1;
+}
+
+#js-text-modal > .import-data-modal-row {
+	flex: 0 auto;
 }
 
 .import-data-modal-row {
