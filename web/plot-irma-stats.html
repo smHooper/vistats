@@ -19,13 +19,14 @@
 
 	<link rel="stylesheet" href="css/plot-irma-stats.css">
 	<link rel="stylesheet" href="css/vistats.css">
+	<link rel="stylesheet" href="css/plot.css">
 </head>
 
 <body>
 
 	 <!-- loading indicator should be hidden and will only be shown when loading data -->
-	<div id="loading-indicator-background" style="display: none;"></div>
-	<div id="loading-indicator" style="display: none;"></div>
+	<div class="modal-background modal-background-light" id="loading-indicator-background"></div>
+	<div id="loading-indicator"></div>
 
 	<div class="plot-header-menu">
 		<a class="home-button" role="button" href="vistats-plot.html"></a>
@@ -127,6 +128,25 @@
 	<script type="text/javascript">
 		$(document).ready(function() {
 			$(window).resize(resizeLayout);
+
+			const plotCookie = getCookie('plot-data');
+			if (plotCookie === null) {
+				const now = new Date()
+				$('#input-start_date').val(`${now.getFullYear() - 2}-${('0' + (now.getMonth() + 1)).slice(-2)}`);
+				$('#input-end_date').val(`${now.getFullYear()}-${('0' + (now.getMonth() + 1)).slice(-2)}`);
+				runQuery();
+			} else {
+				const cookieData = $.parseJSON(plotCookie.split(';')[0]);
+				for (key in cookieData.options) {
+					const option = cookieData.options[key];
+					if (option.id.startsWith('#checkmark')) {
+						$(option.id).prop('checked', option.value);
+					} else {
+						$(option.id).val(option.value);
+					}
+				}
+				plotData(cookieData.data, cookieData.labels, cookieData.pivotColumns, cookieData.colors);
+			}
 		})
 
 	</script>

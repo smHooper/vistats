@@ -207,6 +207,10 @@ table.tbody-scroll {
 	/*width: 100%;*/
 }
 
+.data-input-cell.label-column {
+	min-width: 250px
+}
+
 .form-data-header > .data-input-cell {/*#input-table > thead th {*/
 	height: 60px;
 	font-weight: 600;

@@ -47,15 +47,7 @@ function getMaxXLabels(minSpacing=45) {
 }
 
 
-function plotData(data, labels, pivotColumns, colors) {
-
-
-	let xTickLabels = [];
-	for (i in pivotColumns) {
-		let [year, month] = pivotColumns[i].split('_');
-		const label = $('#select-time_step').val() == 'month' ?  `${month[0].toUpperCase()}${month.slice(1,3)}, ${year}` : year;
-		xTickLabels.push(label);
-	}
+function createPlot(data, labels, colors, xTickLabels) {
 
 	CHART = c3.generate({
 		bindto: '#chart',
@@ -92,6 +84,12 @@ function plotData(data, labels, pivotColumns, colors) {
 	    CHART.toggle(id);
 	}
 
+	hideLoadingIndicator('runQuery');
+}
+
+
+function loadLegend(labels, chartType){
+
 	// Clear the legend
 	d3.selectAll('.legend-item-container').remove();
 
@@ -120,19 +118,64 @@ function plotData(data, labels, pivotColumns, colors) {
 			return id;
 		}
 	);
+}
 
-	//$('#legend-container').css('height', $('#chart').css('height'));
 
-	$('.tick line').addClass('hidden');//manually hide because pure css doesn't work
+function getOptions() {
 
+	const startDate = new Date($('#input-start_date').val() + ' 00:00');
+	const endDate = new Date($('#input-end_date').val() + ' 00:00');
+	
+	return {
+		query: 		{id: '#select-query', value: $('#select-query').val() },
+		timeStep: 	{id: '#select-time_step', value: $('#select-time_step').val() },
+		startDate:	{id: '#input-start_date', value: `${startDate.getFullYear()}-${('0' + (startDate.getMonth() + 1)).slice(-2)}` },
+		endDate: 	{id: '#input-end_date', value: `${endDate.getFullYear()}-${('0' + (endDate.getMonth() + 1)).slice(-2)}` },
+		chartType: 	{id: '#select-chart_type', value: $('#select-chart_type').val() },
+		grid: 		{id: '#checkmark-grid', value: $('#checkmark-grid').prop('checked') },
+		multiplier: {id: '#checkmark-multiplier', value: $('#checkmark-multiplier').prop('checked')}
+	}
+}
+
+function plotData(data, labels, pivotColumns, colors) {
+
+
+	let xTickLabels = [];
+	for (i in pivotColumns) {
+		let [year, month] = pivotColumns[i].split('_');
+		const label = $('#select-time_step').val() == 'month' ?  `${month[0].toUpperCase()}${month.slice(1,3)}, ${year}` : year;
+		xTickLabels.push(label);
+	}
+
+	// If the CHART is not yet defined, create it
+	if (CHART === undefined) {
+		createPlot(data, labels, colors, xTickLabels);
+	} 
+	// Otherwise, reload the data and options
+	else {
+
+	}
+
+	const chartType = $('#select-chart_type').val();
+	loadLegend(labels, chartType);
+
+	// Create title
 	var formatter = new Intl.DateTimeFormat('en', {month: 'long'});
 	const startDate = new Date($('#input-start_date').val() + ' 00:00');
 	const endDate =   new Date($('#input-end_date').val() + ' 00:00');
 
 	$('.chart-title').text(`${$('#select-query').val()}: ${formatter.format(startDate)}, ${startDate.getFullYear()}—${formatter.format(endDate)}, ${endDate.getFullYear()}`);
 
-}
+	const cookieData = {
+		data: data,
+		labels: labels,
+		pivotColumns: pivotColumns,
+		colors: colors,
+		options: getOptions()
+	};
 
+	setCookie('plot-data', JSON.stringify(cookieData), 60);
+}
 
 
 function resizeLayout() {
@@ -292,7 +335,8 @@ function queryIRMA(pivotColumns, fieldIDStr) {
 				}
 			}, 
 			failFilter=function(xhr, status, error) {
-				console.log(`configuring form failed with status ${status} because ${error} with query:\n${sql}`)
+				alert(`configuring form failed with status ${status} because ${error} with query:\n${sql}`);
+				hideLoadingIndicator();
 			}
 		);
 
@@ -304,6 +348,7 @@ function runQuery(){
 	const pivotColumns = getPivotColumns();
 	const queryName = $('#select-query').val();
 
+	showLoadingIndicator();
 
 	var fields;
 	const sql = `
@@ -334,7 +379,8 @@ function runQuery(){
 			}
 		},
 		failFilter=function(xhr, status, error) {
-			console.log(`configuring form failed with status ${status} because ${error} with query:\n${sql}`)
+			alert(`configuring form failed with status ${status} because ${error} with query:\n${sql}`);
+			hideLoadingIndicator();
 		}
 	).then(
 		doneFilter=() => {queryIRMA(pivotColumns, fields)}
