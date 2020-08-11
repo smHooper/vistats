@@ -589,7 +589,7 @@ function onImportButtonClick(event) {
 	// check who should be contact for kennels
 	$(
 	`<div class="modal-background modal-background-dark" id="import-data-background"></div>
-	<div class="modal" id="import-data-modal">
+	<div class="modal modal-light" id="import-data-modal">
 		<div class="import-data-modal-row distribute-horizontally">
 			<h5>Upload data from a JV report</h5>
 			<label>Uploading for <strong>${$('#month-select > option:selected').text()}</strong></label>
@@ -715,22 +715,48 @@ function generateJavascript(event) {
 		}
 	})
 
+
+	$(	
+	`<div class="modal-background modal-background-dark" id="js-modal-background"></div>
+	<div class="modal modal-light" id="js-text-modal">
+		<p id="js-text"></p>
+		<div class="import-data-modal-row center-horizontally">
+			<button class="generic-button import-data-row-item secondary-button" id="close-js-modal-button">close</button>
+			<button class="generic-button import-data-row-item" type="button" id="copy-js-button">copy javascript</button>
+			<button class="generic-button import-data-row-item" type="button" id="open-irma-form-button">open IRMA form</button>
+		</div>
+	</div>`).appendTo('body')
+
+	$('#js-modal-background, #close-js-modal-button').click(() => {
+			$('#js-modal-background').remove();
+			$('#js-text-modal').remove();
+	});
+	
+	$('#open-irma-form-button').click(() => {
+		// Open the IRMA STATS page
+		var win = window.open(irmaURL, '_blank');
+		if (win) {
+		    //Browser has allowed it to be opened
+		    win.focus();
+		} else {
+		    //Browser has blocked it
+		    alert(`Your browser has blocked this page from opening the IRMA STATS page. Please allow popups or navigate to ${irmaURL} manually.`);
+		}
+	})
+
+	$('#copy-js-button').click(() => {
+		copyToClipboard('js-text', deselect=false);
+		alert('javascript text copied to clipboard');
+	})
+	
 	$('#js-text')
 		.text(jsString)
 		.removeClass('hidden');
 
 	// Select the text field
 	copyToClipboard('js-text', deselect=false);
-	
-	// Open the IRMA STATS page
-	var win = window.open(irmaURL, '_blank');
-	if (win) {
-	    //Browser has allowed it to be opened
-	    win.focus();
-	} else {
-	    //Browser has blocked it
-	    alert(`Your browser has blocked this page from opening the IRMA STATS page. Please allow popups or navigate to ${irmaURL} manually.`);
-	}
+
+	setTimeout(() => {alert('javascript text copied to clipboard')}, 300);
 
 }
 
