@@ -42,19 +42,34 @@ function getPivotColumns() {
 
 function getMaxXLabels(minSpacing=45) {
 
-	return Math.round($('#chart').width()/minSpacing);
+	return Math.round($('#chart').width() / minSpacing);
 
 }
 
 
-function createPlot(data, labels, colors, xTickLabels) {
+function getChartType(labels) {
+
+	var chartType = $('#select-chart_type').val();
+	var groups = [];
+	if (chartType === 'stacked bar') {
+		chartType = 'bar';
+		groups = [labels];
+	}
+
+	return [chartType, groups];
+
+}
+
+
+function createPlot(data, labels, colors, chartType, groups=[]) {
 
 	CHART = c3.generate({
 		bindto: '#chart',
 		data: {
+			x: 'x',
 			columns: data,
-			type: 'bar',
-			groups: [labels],
+			type: chartType,
+			groups: groups,//[labels],
 			colors: colors,
 			order: null
 		},
@@ -64,7 +79,6 @@ function createPlot(data, labels, colors, xTickLabels) {
 	    axis : {
 	        x: {
 	        	type: 'category',
-	            categories: xTickLabels,
 	            tick: {
 	            	rotate: -45,
 	                multiline: false,
@@ -84,7 +98,18 @@ function createPlot(data, labels, colors, xTickLabels) {
 	    CHART.toggle(id);
 	}
 
-	hideLoadingIndicator('runQuery');
+}
+
+
+function reloadPlot(data, chartType, groups=[]) {
+
+	if (CHART.internal.config.data_type !== chartType) CHART.unload();
+
+	CHART.load({
+		columns: data,
+		type: chartType
+	})
+	CHART.groups(groups);
 }
 
 
@@ -96,7 +121,7 @@ function loadLegend(labels, chartType){
 	// Add containers for each legend item and bind events to them
 	var legendItems = d3.select('.legend-body')
 		.selectAll('span')
-		.data(labels.reverse())
+		.data([...labels].reverse())
 		.enter().append('div').attr('class', 'legend-item-container')
 		.on('mouseover', function(id) {
 			CHART.focus(id);
@@ -118,6 +143,7 @@ function loadLegend(labels, chartType){
 			return id;
 		}
 	);
+
 }
 
 
@@ -137,6 +163,7 @@ function getOptions() {
 	}
 }
 
+
 function plotData(data, labels, pivotColumns, colors) {
 
 
@@ -147,16 +174,16 @@ function plotData(data, labels, pivotColumns, colors) {
 		xTickLabels.push(label);
 	}
 
-	// If the CHART is not yet defined, create it
-	if (CHART === undefined) {
-		createPlot(data, labels, colors, xTickLabels);
-	} 
-	// Otherwise, reload the data and options
-	else {
+	var [chartType, groups] = getChartType(labels);
 
+	// If the CHART is not yet defined, create it
+	data = [['x'].concat(xTickLabels)].concat(data);
+	if (CHART === undefined) {
+		createPlot(data, labels, colors, chartType, groups);
+	} else {
+		reloadPlot(data, chartType, groups);
 	}
 
-	const chartType = $('#select-chart_type').val();
 	loadLegend(labels, chartType);
 
 	// Create title
@@ -167,7 +194,7 @@ function plotData(data, labels, pivotColumns, colors) {
 	$('.chart-title').text(`${$('#select-query').val()}: ${formatter.format(startDate)}, ${startDate.getFullYear()}—${formatter.format(endDate)}, ${endDate.getFullYear()}`);
 
 	const cookieData = {
-		data: data,
+		data: data.slice(1),
 		labels: labels,
 		pivotColumns: pivotColumns,
 		colors: colors,
@@ -175,8 +202,45 @@ function plotData(data, labels, pivotColumns, colors) {
 	};
 
 	setCookie('plot-data', JSON.stringify(cookieData), 60);
+
+	hideLoadingIndicator();
 }
 
+
+function plotDataFromCookie(cookieData) {
+
+	for (key in cookieData.options) {
+		const option = cookieData.options[key];
+		if (option.id.startsWith('#checkmark')) {
+			$(option.id).prop('checked', option.value);
+		} else {
+			$(option.id).val(option.value);
+		}
+	}
+	plotData(cookieData.data, cookieData.labels, cookieData.pivotColumns, cookieData.colors);
+}
+
+
+function onPlottingOptionChange(optionElementID) {
+	
+	// Get data from cookie
+	const cookieData = $.parseJSON(getCookie('plot-data'));
+	
+	// Update cookie data with new option value
+	var cookieDataOptions = cookieData.options;
+	for (optionName in cookieDataOptions) {
+		const thisOption = cookieDataOptions[optionName];
+		if (optionElementID === thisOption.id) {
+			cookieData.options[optionName].value = optionElementID.startsWith('#checkmark') ?
+				$(optionElementID).prop('checked') :
+				$(optionElementID).val();
+		}
+	}
+	
+	// plot
+	plotDataFromCookie(cookieData);
+
+}
 
 function resizeLayout() {
 	const $container = $('.chart-container');
@@ -244,7 +308,7 @@ function queryIRMA(pivotColumns, fieldIDStr) {
 					console.log(`error getting query parameters: ${queryResultString}`);
 				} else {
 					const queryResult = $.parseJSON(queryResultString);
-
+					QUERY_DATA = {}; // reset
 					for (id in QUERY_INFO){
 						const thisInfo = QUERY_INFO[id];
 						// Find the data row for this row in the queryInfo by comparing field IDs
