@@ -60,7 +60,7 @@
 						<div class="input-column data-input-cell"></div>
 						<div class="is-estimated-column data-input-cell"></div>
 						<div class="is-verified-column data-input-cell">
-							<button class="text-only-button table-footer-button hidden" id="verify-all-button" onclick="onVerifyAllClick(event)">
+							<button class="text-only-button table-footer-button hidden" id="verify-all-button" type="button" onclick="onVerifyAllClick(event)">
 								verify all
 							</button>
 						</div>
@@ -68,9 +68,9 @@
 					</div>
 				</div>
 				<div class="form-footer">
-					<button class="generic-button form-footer-button" id="save-button" onclick="onSaveClick(event)">save</button>
-					<button class="generic-button form-footer-button admin-button summer-field" id="import-data-button" onclick="onImportButtonClick(event)">upload JV data</button>
-					<button class="generic-button form-footer-button admin-button" id="fill-stats-button" onclick="generateJavascript(event)">generate javascript</button>
+					<button class="generic-button form-footer-button" id="save-button" type="button" onclick="onSaveClick(event)">save</button>
+					<button class="generic-button form-footer-button admin-button summer-field" id="import-data-button" type="button" onclick="onImportButtonClick(event)">upload JV data</button>
+					<button class="generic-button form-footer-button admin-button" id="fill-stats-button" type="button" onclick="generateJavascript(event)">generate javascript</button>
 				</div>		
 				<div id="js-text-container">
 					<p class="hidden" id="js-text"></p>
@@ -83,6 +83,7 @@
 	</div>
 
 	<script src="js/jquery.csv.min.js"></script>
+	<script src="js/vistats.js"></script>
 	<script src="js/vistats-entry.js"></script>
 
 	<script type="text/javascript">

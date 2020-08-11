@@ -363,9 +363,9 @@ function onDataInputChange(inputID, promptIfVerified=true) {
 	const thisInput = $('#' + inputID);
 	const parentRow = thisInput.closest('.data-input-row');
 	const verifiedCheckbox = parentRow.find('.verified-checkbox');
-	const verifiedBy = parentRow.find('.verified-by-label').text();
+	const verifiedBy = parentRow.find('.verified-by-label').text().trim();
 	const labelID = parentRow.attr('data-label-id');
-	const username = $('#username').text();
+	const username = $('#username').text().trim();
 	var commitChange = true;
 
 	//If this value has already been verified (by someone else), confirm the change
