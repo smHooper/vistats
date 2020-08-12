@@ -124,16 +124,46 @@ function loadLegend(labels, chartType){
 		.data([...labels].reverse())
 		.enter().append('div').attr('class', 'legend-item-container')
 		.on('mouseover', function(id) {
-			CHART.focus(id);
+			CHART.focus(id);//
 		})
 		.on('mouseout', function(id) {
-			CHART.revert();
+			CHART.revert(); //
 		})
+	
 	// Add the patches
-	legendItems.append('div').attr('class', 'legend-patch')
-		.each(function(id) {
+	var legendPatches = legendItems.append('div').attr('class', 'legend-patch');
+	if (chartType === 'line') {
+		const bbox = legendPatches.node().getBoundingClientRect();
+		legendPatches
+			.each(function(id) {
+				const svgY = bbox.height / 2;
+				const thisColor = CHART.color(id);
+				var svg = d3.select(this)
+					.append('svg')
+					.attr('width', bbox.width)
+					.attr('height', bbox.height);
+				svg.append('line')
+					.attr('x1', 0)
+					.attr('y1', svgY)
+					.attr('x2', bbox.width)
+					.attr('y2', svgY)
+					.style('stroke', thisColor)
+				svg.append('circle')
+					.attr('cx', 2)
+					.attr('cy', svgY)
+					.attr('r', 2)
+					.style('fill', thisColor);
+				svg.append('circle')
+					.attr('cx', bbox.width - 2)
+					.attr('cy', svgY)
+					.attr('r', 2)
+					.style('fill', thisColor)
+			});
+	} else {
+		legendPatches.each(function(id) {
 			d3.select(this).style('background-color', CHART.color(id));
 		})
+	}
 	// Add the labels
 	legendItems.insert('label').attr('class', 'legend-label')
 		.attr('data-id', function(id) {
