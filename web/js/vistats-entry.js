@@ -4,6 +4,7 @@ var USER_ROLES = {}
 var COUNT_PERIODS = {}; // stores id, count_date from count_periods table
 var DATA = {}; // stores queried data
 var CURRENT_DATE = '1970-1-1';
+var UNDO_BUFFER = {};
 
 function queryDB(sql) {
 
@@ -348,6 +349,8 @@ function onMonthSelectChange() {
 
 	CURRENT_DATE = $('#month-select').val();
 
+	UNDO_BUFFER = {};//whipe buffer so unrelated fields aren't changed
+
 }
 
 
@@ -368,6 +371,16 @@ function onDataInputChange(inputID, promptIfVerified=true) {
 	const username = $('#username').text().trim();
 	var commitChange = true;
 
+	// Reset the undo buffer
+	const currentUndoBuffer = {...UNDO_BUFFER}; //record current buffer in case user doesn't confirm change
+	UNDO_BUFFER = {
+		id: labelID,
+		previousData: {...DATA[labelID]},
+		elementID: thisInput.attr('id'),
+		value: DATA[labelID].value,
+		wasDirty: parentRow.hasClass('data-dirty') 
+	};
+
 	//If this value has already been verified (by someone else), confirm the change
 	//if ()
 	if (verifiedCheckbox.prop('checked') && verifiedBy !== username && promptIfVerified) {
@@ -383,6 +396,7 @@ function onDataInputChange(inputID, promptIfVerified=true) {
 		} else {
 			// Revert change
 			thisInput.val(DATA[labelID].value);
+			UNDO_BUFFER = {...currentUndoBuffer};
 		}
 	// This value has not yet been saved to the db
 	} else if (DATA[labelID].is_new_value) { 
@@ -407,20 +421,48 @@ function onDataInputChange(inputID, promptIfVerified=true) {
 function onVerifiedCheckboxChange(labelName) {
 	/*When the user checks an uncheck verified-by checkbox, add their name and update related fields*/
 	let thisCheckbox = $('#checkbox-verified-' + labelName);
-	let thisID = thisCheckbox.closest('.data-input-row').attr('data-label-id')
+	let parentRow = thisCheckbox.closest('.data-input-row');
+	let thisInput = parentRow.find('.input-column > .data-input');
+	let thisID = parentRow.attr('data-label-id');
+
+	// Reset the undo buffer
+	const currentUndoBuffer = {...UNDO_BUFFER}; //record current buffer in case user doesn't confirm change
+	UNDO_BUFFER = {
+		id: thisID,
+		previousData: {...DATA[thisID]},
+		elementID: thisCheckbox.attr('id'),
+		value: !thisCheckbox.prop('checked'),//value already changed so set to opposite 
+		wasDirty: parentRow.hasClass('data-dirty')
+	};
+
 	if (thisCheckbox.prop('checked')) {
-		let username = $('#username').text();
-		$('#data-row-' + labelName).find('.verified-by-label').text(username);
-		DATA[thisID].verified = true;
-		DATA[thisID].verified_by = username;
-		DATA[thisID].verified_time = getFormattedTimestamp();
-		userDidEdit(thisID)
+		//Check if the field is empty. If so, ask the user if they want to fill it with 0
+		var confirmed = true;
+		if (thisInput.val() === "") {
+			confirmed = confirm('This field is empty. Do you want to fill it with "0"?');
+			if (confirmed) {
+				thisInput.val(0);
+				DATA[thisID].value = thisInput.val();
+			} else {
+				thisCheckbox.prop('checked', false); //revert to unverified
+				UNDO_BUFFER = {...currentUndoBuffer};
+			}
+		}
+		if (confirmed) {
+			let username = $('#username').text();
+			$('#data-row-' + labelName).find('.verified-by-label').text(username);
+			DATA[thisID].verified = true;
+			DATA[thisID].verified_by = username;
+			DATA[thisID].verified_time = getFormattedTimestamp();
+			userDidEdit(thisID);
+
+		}
 	} else {
 		$('#data-row-' + labelName).find('.verified-by-label').text('');
 		DATA[thisID].verified = false;
 		DATA[thisID].verified_by = null;
 		DATA[thisID].verified_time = null;
-		userDidEdit(thisID)
+		userDidEdit(thisID);
 	}
 
 	setVerifyAllButtonText();
@@ -430,11 +472,74 @@ function onVerifiedCheckboxChange(labelName) {
 
 function onEstimatedCheckboxChange(labelName) {
 	let thisCheckbox = $('#checkbox-estimated-' + labelName)
-	let thisID = thisCheckbox.closest('tr').attr('data-label-id')
-	DATA[thisID].is_estimated = thisCheckbox.prop('checked')
+	let thisID = thisCheckbox.closest('.data-input-row').attr('data-label-id')
+
+	UNDO_BUFFER = {
+		id: thisID,
+		previousData: {...DATA[thisID]},
+		elementID: thisCheckbox.attr('id'),
+		value: !thisCheckbox.prop('checked'),//value already changed so set to opposite
+		wasDirty: thisCheckbox.closest('.data-input-row').hasClass('data-dirty') 
+	};
+
+	DATA[thisID].is_estimated = thisCheckbox.prop('checked');
 }
 
 
+function undoEdit() {
+
+	// If the user didn't make any changes yet, the undo buffer will be empty so just return
+	if (Object.keys(UNDO_BUFFER).length === 0) {
+		alert(`You haven't made any changes to undo yet`)
+		return;
+	}
+
+	var thisElement = $('#' + UNDO_BUFFER.elementID);
+	const currentUndoBuffer = {...UNDO_BUFFER};
+	var currentValue; 
+	
+	if (UNDO_BUFFER.elementID.startsWith('input')) {
+		currentValue = thisElement.val();
+		thisElement.val(currentUndoBuffer.value);
+		DATA[currentUndoBuffer.id].value = currentUndoBuffer.value;
+	} else if (UNDO_BUFFER.elementID.startsWith('checkbox-verified')) {
+		currentValue = thisElement.prop('checked');
+		
+		// Set the checkbox value
+		thisElement.prop('checked', currentUndoBuffer.value);
+		
+		// Set the verified_by label text
+		const verifiedBy = currentUndoBuffer.previousData.verified_by;
+		const verifiedByLabel = thisElement.closest('.data-input-row').find('.verified-by-label');
+		const currentVerifiedBy = verifiedByLabel.text();
+		verifiedByLabel.text(verifiedBy);
+		DATA[currentUndoBuffer.id].verified_by = verifiedBy;
+		DATA[currentUndoBuffer.id].verified = currentUndoBuffer.value
+		
+		//Update the buffer's verified_by property so it can be reset
+		UNDO_BUFFER.previousData.verified_by = currentVerifiedBy;
+	} else {
+		currentValue = thisElement.prop('checked');
+		thisElement.prop('checked', currentUndoBuffer.value);
+		DATA[currentUndoBuffer.id].is_estimated = currentUndoBuffer.value
+	}
+
+	//Update the UNDO_BUFFER so it's redy to redo the edit
+	UNDO_BUFFER.value = currentValue;
+	
+	// If the data were saved since the last edit, mark the row as dirty
+	if (!UNDO_BUFFER.wasDirty) thisElement.closest('.data-input-row').addClass('data-dirty');
+	//thisElement.closest('.data-input-row').toggleClass('data-dirty');
+}
+
+
+function onKeyDown(e) {
+
+	if (e.key === 'z' && e.ctrlKey && !e.shiftKey) {
+		undoEdit();
+	}
+
+}
 
 function onSaveClick(event) {
 	
