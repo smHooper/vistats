@@ -20,6 +20,7 @@ BC_PERMIT_DB_NORTH_PATH = r"\\inpdenafiles\parkwide\Backcountry\Backcountry Perm
 BC_PERMIT_DB_SOUTH_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\Backcountry Permit Database\BC Permits Data %s.mdb"
 CLIMBING_PERMIT_DB_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\backend\DenaliNPSData.mdb"
 MSLC_VISITOR_COUNT_PATH = r"\\inpdenafiles\teams\Interp\Ops All, Statistics\MSLC Winter VC, Education\* Winter VC Stats.xlsx"
+INTERP_FACILITIES_PATH  = r"\\inpdenafiles\teams\Interp\Ops All, Statistics\FY{yy}\FY{yy} Stats.xlsx"
 
 LOG_DIR = r"\\inpdenards\vistats\retrieve_data_logs"
 
@@ -47,9 +48,11 @@ VALUE_LABEL_IDS = {'winter':
         6,
         7,
         8,
-        10
+        10,
+        12
     ], 'summer':
     [
+        12,
         13,
         14,
         15,
@@ -350,6 +353,7 @@ def main(param_file, current_date=None):
 
     # For now mslc counts should be by hand
     if season == 'winter':
+        excel_doc = None
         try:
             mslc_counts_path = glob.glob(MSLC_VISITOR_COUNT_PATH)[0]
             excel_doc = pd.ExcelFile(mslc_counts_path)
@@ -357,19 +361,41 @@ def main(param_file, current_date=None):
             log['errors'].append({'action': 'reading MSLC hand counts',
                                   'error': traceback.format_exc()
                                   })
-        month_names = pd.Series(pd.date_range('2020-1-1', '2021-1-1', freq='M').strftime('%B').str.lower(), index=range(1, 13))
-        sheets = pd.Series({sn: sn.lower() for sn in excel_doc.sheet_names if len(sn.split()) == 1})
-        this_month_name = month_names[query_month]
-        mslc_daily_counts = pd.DataFrame()
-        try:
-            this_sheet = sheets[sheets.apply(lambda x: this_month_name.startswith(x))].index[0]
-            mslc_daily_counts = excel_doc.parse(this_sheet)
-            mslc_count = mslc_daily_counts.dropna(axis=0, how='all').iloc[-1, 2]
-            data.append(pd.DataFrame([{'value_label_id': 'mslc_visitors_winter', 'value': mslc_count}]))
-        except:
-            log['errors'].append({'action': 'reading MSLC hand counts sheet for %s' % this_month_name,
-                                  'error': traceback.format_exc()
-                                  })
+        if excel_doc:
+            month_names = pd.Series(pd.date_range('2020-1-1', '2021-1-1', freq='M').strftime('%B').str.lower(), index=range(1, 13))
+            sheets = pd.Series({sn: sn.lower() for sn in excel_doc.sheet_names if len(sn.split()) == 1})
+            this_month_name = month_names[query_month]
+            mslc_daily_counts = pd.DataFrame()
+            try:
+                this_sheet = sheets[sheets.apply(lambda x: this_month_name.startswith(x))].index[0]
+                mslc_daily_counts = excel_doc.parse(this_sheet)
+                mslc_count = mslc_daily_counts.dropna(axis=0, how='all').iloc[-1, 2]
+                data.append(pd.DataFrame([{'value_label_id': 'mslc_visitors_winter', 'value': mslc_count}]))
+            except:
+                log['errors'].append({'action': 'reading MSLC hand counts sheet for %s' % this_month_name,
+                                      'error': traceback.format_exc()
+                                      })
+
+    # Kennels are also recorded by hand for now
+    two_digit_fiscal_year = query_date\
+        .replace(year=query_year + 1 if query_month >= 10 else query_year)\
+        .strftime('%y')
+    all_kennels = pd.DataFrame()
+    try:
+        all_kennels = pd.read_excel(INTERP_FACILITIES_PATH.format(yy=two_digit_fiscal_year), sheet_name='Kennels')\
+            .set_index('Date')
+    except:
+        log['errors'].append({'action': 'reading Kennels spreadsheet',
+                              'error': traceback.format_exc()
+                              })
+    # Get just the fields and rows containing counts for this month and sum them
+    if len(all_kennels):
+        kennels_count = all_kennels.loc[
+            all_kennels.index.month == query_month,
+            all_kennels.columns.str.startswith('Kennels') | all_kennels.columns.str.startswith('Dog Demo')
+        ].sum().sum() # No longer an axis=None option to sum all
+        data.append(pd.DataFrame([{'value_label_id': 'kennels_visitors', 'value': kennels_count}]))
+
 
     ###########################################################################################################
     ################################## savage db queries ######################################################
