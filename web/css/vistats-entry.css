@@ -394,6 +394,11 @@ button:hover {
 	vertical-align: center;
 }
 
+.checkmark-container input[type="checkbox"]:focus + span::before {
+	outline: rgb(0, 0, 0) auto 5px;
+	box-shadow: 0 0 0 5px #ffbf47;
+}
+
 
 #loading-indicator {
   position: fixed;
@@ -466,7 +471,8 @@ button:hover {
 
 #js-text-modal {
 	width: 700px;
-	height: 800px;
+	height: 50%;
+	min-height: 400px;
 	display: flex;
 	flex-direction: column;
 }

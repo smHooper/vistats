@@ -97,7 +97,7 @@ function onVerifyAllClick(event) {
 
 // Cusotm jquery selector to find items assigned to the current user
 $.expr[':'].hasTag = function(jqObject) {
-	const roles = USER_ROLES[$('#username').text()]
+	const roles = USER_ROLES[$('#username').text()];
 	
 	const hasTag = roles.includes($(jqObject).attr('data-source-tag')) || roles.includes('admin');
 
@@ -247,6 +247,7 @@ function configureForm(periodDate) {
 			} else {  
 				let queryResult = $.parseJSON(queryResultString);
 				if (queryResult) {
+					var rowIndex = 0;
 					queryResult.forEach(function(object) {
 						DATA[object.id] = {...object}
 						var seasonClass = '';
@@ -258,7 +259,7 @@ function configureForm(periodDate) {
 						<div class="data-input-row ${seasonClass} hidden" id="data-row-${object.retrieve_data_label}" data-label-id=${object.id} data-source-tag=${object.source_tag}>
 							<div class="label-column data-input-cell data-input-label left-align">${object.dena_label}</div>
 							<div class="input-column data-input-cell">
-								<input class="data-input" type="number" id="input-${object.retrieve_data_label}" min="0" requried value=${object.value} data-irma-element=${object.irma_html_element_id}></div>
+								<input class="data-input" type="number" id="input-${object.retrieve_data_label}" min="0" requried value=${object.value} data-irma-element=${object.irma_html_element_id} tabindex=${rowIndex * 3 + 1}></div>
 							<div class="is-estimated-column data-input-cell">
 								<label class="checkmark-container">
 									<input class="input-checkbox estimated-checkbox" type="checkbox" ${isEstimated} id="checkbox-estimated-${object.retrieve_data_label}">
@@ -279,28 +280,42 @@ function configureForm(periodDate) {
 						$(`#input-${object.retrieve_data_label}`).change(()=> {onDataInputChange(`input-${object.retrieve_data_label}`)})
 						$(`#checkbox-verified-${object.retrieve_data_label}`).change(()=> {onVerifiedCheckboxChange(object.retrieve_data_label)})
 						$(`#checkbox-estimated-${object.retrieve_data_label}`).change(()=> {onEstimatedCheckboxChange(object.retrieve_data_label)})//
+
+						rowIndex ++;
 					})
 				} 
 			}
 
-			if (periodMonth >=5 && periodMonth <=9) {
-				$('.summer-field').removeClass('hidden')
+			var season;
+			if (periodMonth >= 5 && periodMonth <= 9) {
+				$('.summer-field').removeClass('hidden');
+				season = 'summer';
+
+				// Show the Upload JV data button if this user has the jv role assigned to them
+				if (!USER_ROLES[currentUser].includes('jv')) $('#import-data-button').addClass('hidden');
+			
 			} else {
-				$('.winter-field').removeClass('hidden')
-				$('.generic-button.summer-field').addClass('hidden');
+				$('.winter-field').removeClass('hidden');
+				//$('.generic-button.summer-field').addClass('hidden');
+				season = 'winter';
 			}
 
+			// Hide any fields that aren't relevant for this user's roles 
+			$('.form-data-body > .data-input-row').not(':hasTag').addClass('hidden');
+
+			// If all rows are hidden, this user doesn't have any roles for this season so alert them
+			if ($('.form-data-body > .data-input-row').not('.hidden').length === 0) {
+				$('.form-footer').addClass('hidden'); // hide the buttons
+				alert(`You're logged in as ${username}, but there are no roles assigned to you for the ${season} season.`);
+				return; // keep other elements hidden by breaking out of the function
+			}
 
 			// This button is hidden at first because loading the data takes a minute
 			//	 and it doesn't make sense to show it before then
 			$('#verify-all-button').removeClass('hidden');
 
-			$('.form-data-body > .data-input-row').not(':hasTag').addClass('hidden');
-
-			if (!USER_ROLES[currentUser].includes('admin')) $('.admin-button').addClass('hidden');
-
-			// Remove any hidden rows from the DOM
-			//$('.data-input-row.hidden').remove();
+			// If this is an admin users, un-hide any admin buttons
+			if (USER_ROLES[currentUser].includes('admin')) $('.admin-button').removeClass('hidden');
 
 			// Register any change events to mark the form as dirty
 			$('.data-input, .input-checkbox').change(function() {
