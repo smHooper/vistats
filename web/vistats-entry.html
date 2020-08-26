@@ -69,13 +69,10 @@
 				</div>
 				<div class="form-footer">
 					<button class="generic-button form-footer-button" id="save-button" type="button" onclick="onSaveClick(event)">save</button>
-					<button class="generic-button form-footer-button admin-button summer-field" id="import-data-button" type="button" onclick="onImportButtonClick(event)">upload JV data</button>
-					<button class="generic-button form-footer-button admin-button" id="fill-stats-button" type="button" onclick="generateJavascript(event)">generate javascript</button>
+					<button class="generic-button form-footer-button admin-button summer-field hidden" id="import-data-button" type="button" onclick="onImportButtonClick(event)">upload JV data</button>
+					<button class="generic-button form-footer-button admin-button hidden" id="fill-stats-button" type="button" onclick="generateJavascript(event)">generate javascript</button>
 				</div>		
-				<!--<div id="js-text-container">
-					<p class="hidden" id="js-text"></p>
-				</div>
-				<div id="form-footer-spacer"></div>-->
+				
 			</form>
 
 		</div>
@@ -109,7 +106,7 @@
 						success: function(usernameString){
 							// If authentication failed, do nothing
 							if (usernameString)  {
-								username = usernameString.trim();
+								username = usernameString.trim().toLowerCase();
 								$('#username').text(username);
 								getUserRoles()
 									.then(
