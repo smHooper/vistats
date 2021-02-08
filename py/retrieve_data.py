@@ -123,8 +123,7 @@ def query_access_db(db_path, sql):
     shutil.copy(db_path, temp_dir)
 
     # Connect and run query
-    conn = pyodbc.connect(r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
-                          r'DBQ=%s' % (temp_db_path))
+    conn = pyodbc.connect(r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=%s' % (temp_db_path))
     bc_stats = pd.read_sql(sql, conn)
     conn.close()
 
@@ -137,44 +136,13 @@ def query_access_db(db_path, sql):
     return bc_stats
 
 
-def main(param_file, current_date=None):
+def run_queries(params, log, query_date, current_date=None):
 
-    now = datetime.datetime.now()
-    if current_date:
-        try:
-            current_date = datetime.datetime.strptime(current_date, '%Y-%m-%d')
-        except:
-            # Raise this error instead of logging because a call signature with current_date specified will only be run
-            #   manually (not by an automated task)
-            raise ValueError('Current date "%s" not understood' % current_date)
-    else:
-        current_date = now
-    query_date = current_date - relativedelta.relativedelta(months=1)
     query_year = query_date.year
     query_month = query_date.month
     start_date = '{year}-{month}-1'.format(year=query_year, month=query_month)
     end_date = '{year}-{month}-1'.format(year=current_date.year, month=current_date.month)
     season = 'summer' if query_month in range(5, 10) else 'winter'
-
-    # Make the log dir in case it doesn't already exist and set up a log dictionary for storing errors/messages
-    if not os.path.isdir(LOG_DIR):
-        os.makedirs(LOG_DIR)
-
-    log = {
-        'run_time': now.strftime('%Y-%m-%d %H:%M'),
-        'errors': [],
-        'messages': []
-    }
-
-    if not os.path.isfile(param_file):
-        log['errors'] = 'param_file %s does not exist' % param_file
-        sys.exit()
-
-    try:
-        params = read_json_params(param_file)
-    except:
-        log['errors'] = traceback.format_exc()
-        sys.exit()
 
     data = []
 
@@ -426,7 +394,7 @@ def main(param_file, current_date=None):
         GROUP BY extract(month FROM datetime)
     '''.format(start=start_date, end=end_date)
     lottery_sql = '''
-        SELECT 'road_lottery_permits' as value_label_id, count(*) AS value 
+        SELECT 'road_lottery_permits' as value_label_id, sum(n_passengers) AS value 
         FROM road_lottery
         WHERE datetime BETWEEN '{start}' AND '{end}'
         GROUP BY extract(month FROM datetime)
@@ -511,9 +479,52 @@ def main(param_file, current_date=None):
                               'error': traceback.format_exc()
                               })
 
-
-    #################################### import data ###############################################################
     counts = pd.concat(data, sort=False).drop_duplicates(subset='value_label_id', keep='last').fillna(0)
+
+    return counts
+
+
+def main(param_file, current_date=None):
+
+    now = datetime.datetime.now()
+    if current_date:
+        try:
+            current_date = datetime.datetime.strptime(current_date, '%Y-%m-%d')
+        except:
+            # Raise this error instead of logging because a call signature with current_date specified will only be run
+            #   manually (not by an automated task)
+            raise ValueError('Current date "%s" not understood' % current_date)
+    else:
+        current_date = now
+    query_date = current_date - relativedelta.relativedelta(months=1)
+    query_year = query_date.year
+    query_month = query_date.month
+    start_date = '{year}-{month}-1'.format(year=query_year, month=query_month)
+    season = 'summer' if query_month in range(5, 10) else 'winter'
+
+
+    # Make the log dir in case it doesn't already exist and set up a log dictionary for storing errors/messages
+    if not os.path.isdir(LOG_DIR):
+        os.makedirs(LOG_DIR)
+
+    log = {
+        'run_time': now.strftime('%Y-%m-%d %H:%M'),
+        'errors': [],
+        'messages': []
+    }
+
+    if not os.path.isfile(param_file):
+        log['errors'] = 'param_file %s does not exist' % param_file
+        sys.exit()
+
+    try:
+        params = read_json_params(param_file)
+    except:
+        log['errors'] = traceback.format_exc()
+        sys.exit()
+
+    # Query data sources
+    counts = run_queries(params, log, query_date, current_date)
 
     try:
         engine = sqlalchemy.create_engine(

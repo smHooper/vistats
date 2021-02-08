@@ -150,7 +150,7 @@ def send_notifications(param_file, count_date):
             )
             recipient = f'{user}@nps.gov'
             try:
-                send_email(message, subject, params['mail_sender'],  ['shooper@nps.gov'], server,  message_body_type='html')# [recipient], server,  message_body_type='html')
+                send_email(message, subject, params['mail_sender'], [recipient], server,  message_body_type='html')
             except:
                 ERRORS.append({'context': f'sending message to {recipient}', 'error': traceback.format_exc()})
 
