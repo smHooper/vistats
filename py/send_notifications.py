@@ -1,12 +1,15 @@
 import sys, os
 import json
 import smtplib
+import requests
 import traceback
 import sqlalchemy
+import tempfile
 import pandas as pd
 import email
 import re
 from datetime import datetime
+from PIL import Image
 from email.mime import text as mimetext, multipart as mimemultipart, base as mimebase
 
 
@@ -27,6 +30,89 @@ def write_log():
         json.dump(log_info, j, indent=4)
 
     sys.exit()
+
+
+def quote_kanye(ssl_cert, max_attempts=10):
+
+    '''
+    Get Kanye West quote. The DOI firewall randomly blocks SSL/TLS traffic so wrap in a try except block and make the
+    given maximum number of attempts
+
+    :param ssl_cert: path to DOI .crt file
+    :param max_attempts: number of HTTPS requests to make before giving up
+    :return: string of Kanye West quote
+            <p>
+                Here's a (real) Kanye West quote for your trouble:
+                <br>
+                <br>
+                <em style="color: rgb(122, 122, 122)">&quot{quote}&quot<br>
+                -Kanye West
+                </em>
+            </p>
+    '''
+
+    attempts = 0
+    while attempts < max_attempts:
+        response = requests.get('https://api.kanye.rest/', verify=ssl_cert)
+
+        quote = ''
+        try:
+            response.raise_for_status()
+            quote = response.json()['quote']
+        except:
+            attempts += 1
+            continue
+
+        # Make sure it's family friendly
+        if re.search(r'sh(?!o)[a-z]{1}t|f[a-z]{1}ck|b[a-z]{1}tch|[^a-z]+ass|^assh?)', quote):
+            attempts = 0
+            continue
+
+        return quote
+
+
+def get_xkcd(ssl_cert, max_attempts=10):
+
+    attempts = 0
+    while attempts < max_attempts:
+        # First get img info from the API
+        response = requests.get('https://xkcd.com/info.0.json', verify=ssl_cert)
+
+        img_info = {}
+        try:
+            response.raise_for_status()
+            response_json = response.json()
+            img_info['img_source'] = response_json['img']
+            img_info['img_alt'] = response_json['alt']
+        except:
+            attempts += 1
+            continue
+
+        # Download the image so it can be attached to the email
+        img_response = requests.get(img_info['img_source'], verify=ssl_cert)
+        try:
+            img_response.raise_for_status()
+        except:
+            return img_info
+
+        img_data = img_response.content
+        temp_img_path = os.path.join(tempfile.gettempdir(), os.path.basename(img_info['img_source']))
+        try:
+            with open(temp_img_path, 'wb') as f:
+                f.write(img_data)
+        except:
+            pass
+
+        img_info['path'] = temp_img_path
+
+        # Try to get img size.
+        try:
+            img = Image.open(temp_img_path)
+            img_info['width'], img_info['height'] = img.size
+        except:
+            pass
+
+        return img_info
 
 
 def send_email(message_body, subject, sender, recipients, server, attachments=[], message_body_type='plain'):
@@ -101,6 +187,7 @@ def send_notifications(param_file, count_date):
     with engine.connect() as conn:
         data = pd.read_sql(query_str, conn)
 
+
     message_template = '''
         <html>
             <head></head>
@@ -122,8 +209,7 @@ def send_notifications(param_file, count_date):
                     <br>
                     Thanks!
                 </p>
-                <br>
-                <p>Here's a <a href="http://taco-randomizer.herokuapp.com/">random taco recipe of the day</a> for your trouble. Enjoy!</p>
+                {img_html}
             </body>
         </html>
     '''
@@ -138,6 +224,21 @@ def send_notifications(param_file, count_date):
     month_name = count_datetime.strftime('%B')
     subject = 'Please verify visitor use stats ASAP for {month}, {year}'.format(month=month_name, year=count_datetime.year)
 
+    img_info = get_xkcd(params['ssl_cert'])
+    img_html = ''
+    if img_info:
+        img_html = f'''
+            <p>Enjoy the <a href="https://xkcd.com">xkcd</a> comic for the day for your trouble (if you don't see an 
+            image, click the "trust" link near top of this message or view it <a href="{img_info['img_source']}">here</a>):
+            </p>
+            <br>
+            <div style="text-align:center; width:100%">
+                <div style="width:{img_info['width']}px; height:{img_info['height']}">
+                    <img src="{img_info['img_source']}" border="0" alt="{img_info['img_alt'] if 'img_alt' in img_info else ''}">
+                </div>
+            </div>
+        '''
+
     # For each user, check if any of the fields they're responsible for have yet to be verified
     for user, roles in user_roles.items():
         unverified_fields = data.loc[data.role.isin(roles), 'dena_label']
@@ -146,16 +247,22 @@ def send_notifications(param_file, count_date):
             li_elements = f'''<li>{'</li><li>'.join(unverified_fields)}</li>'''
             message = message_template.format(
                 li_elements=li_elements,
-                params=params
+                params=params,
+                img_html=img_html
             )
 
-            recipient = 'shooper@nps.gov'#f'{user}@nps.gov'
+            recipient = f'{user}@nps.gov'
 
             try:
-                print(user,'\n',message,'\n\n')
-                #send_email(message, subject, params['mail_sender'], [recipient], server,  message_body_type='html')
+                send_email(message, subject, params['mail_sender'], [recipient], server, message_body_type='html')
             except:
+                print(traceback.format_exc())
                 ERRORS.append({'context': f'sending message to {recipient}', 'error': traceback.format_exc()})
+
+    # Clean up the downloaded image if it exists
+    if 'path' in img_info:
+        if os.path.isfile(img_info['path']):
+            os.remove(img_info['path'])
 
 
 def main(param_file, count_date):
