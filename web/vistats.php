@@ -129,9 +129,6 @@ if (isset($_POST['submit']) && isset($_FILES['uploadedFile'])) {
 
 }
 
-if (isset($_POST['whoami'])) {
-	echo runCmd('whoami');
-}
 
 if (isset($_POST['action'])) {
 	

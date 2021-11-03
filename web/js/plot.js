@@ -4,6 +4,7 @@ var SUMMER_MONTHS = ['may', 'jun', 'jul', 'aug', 'sep'];
 
 var QUERY_INFO = {};
 var QUERY_DATA = {};
+var PLOT_INFO = {};
 var CHART;
 
 function queryDB(sql, dbName) {
@@ -27,9 +28,9 @@ function getPivotColumns() {
 	var columns = [];
 	var currentDate = startDate;
 	while (currentDate <= endDate) {
-		let currentColumn = currentDate.getFullYear().toString();
+		let currentColumn = `${currentDate.getFullYear()}`//currentDate.getFullYear().toString();
 		if (timeStep === 'month') {
-			currentColumn += `_${currentDate.toLocaleString('default', {month: 'short'}).toLowerCase()}`
+			currentColumn += `_${('0' + (currentDate.getMonth() + 1)).slice(-2)}`//`_${currentDate.toLocaleString('default', {month: 'short'}).toLowerCase()}`
 		}
 		if (!columns.includes(currentColumn)) columns.push(currentColumn);
 		currentDate = new Date(currentDate.setMonth(currentDate.getMonth() + 1));
@@ -39,6 +40,16 @@ function getPivotColumns() {
 	return columns;
 }
 
+
+function pivotColumnsToTimeSeries(columns) {
+
+	return $.map(columns, function(c) {
+		let column = c.replace('_', '-') + '-01';
+	    if ($('#select-time_step').val() === 'year') column += '-01'; // to get yyyy-mm-dd rather than just yyyy-mm
+	    return column;
+	})
+
+}
 
 function getMaxXLabels(minSpacing=45) {
 
@@ -78,12 +89,13 @@ function createPlot(data, labels, colors, chartType, groups=[]) {
 		},
 	    axis : {
 	        x: {
-	        	type: 'category',
+	        	type: 'timeseries',
 	            tick: {
 	            	rotate: -45,
 	                multiline: false,
 	                culling: {max: getMaxXLabels()},
-	                outer: false
+	                outer: false,
+	                format: '%b, %Y'
 	            }
 	        },
 	        y: {
@@ -91,6 +103,14 @@ function createPlot(data, labels, colors, chartType, groups=[]) {
 	                outer: false
 	            }
 	        }
+	    },
+	    grid: {
+	    	y: {
+	    		show: true
+	    	}
+	    },
+	    zoom: {
+	    	enabled: true
 	    }
 	});
 
@@ -103,13 +123,21 @@ function createPlot(data, labels, colors, chartType, groups=[]) {
 
 function reloadPlot(data, chartType, groups=[]) {
 
-	if (CHART.internal.config.data_type !== chartType) CHART.unload();
+	/*const currentChartData = CHART.internal.cache;
+	const firstKey = Object.keys(currentChartData)[0];
+	// If either the chart type or the number of dates queried is different,
+	//	whipe the chart data to avoid weird plotting issues
+	const unloadData = 
+			currentChartData[firstKey].values.length + 1 !== data[0].length; // || CHART.internal.config.data_type !== chartType all rows should be the same length so it doesn't matter which ones you compare
+	*/
 
 	CHART.load({
 		columns: data,
-		type: chartType
+		type: chartType//,
+		//unload: false//unloadData
 	})
 	CHART.groups(groups);
+
 }
 
 
@@ -197,22 +225,31 @@ function getOptions() {
 function plotData(data, labels, pivotColumns, colors) {
 
 
-	let xTickLabels = [];
+	/*let xTickLabels = [];
 	for (i in pivotColumns) {
 		let [year, month] = pivotColumns[i].split('_');
-		const label = $('#select-time_step').val() == 'month' ?  `${month[0].toUpperCase()}${month.slice(1,3)}, ${year}` : year;
+		const thisDate = new Date(`${year}-${month}-02`);
+		const label = month !== undefined ? // if the column name is only year, month will be undefined
+			`${(thisDate).toLocaleString('default', {month: 'short'})}, ${thisDate.getFullYear()}` : 
+			year;//`${month[0].toUpperCase()}${month.slice(1,3)}, ${year}` : year;
 		xTickLabels.push(label);
-	}
+	}*/
 
 	var [chartType, groups] = getChartType(labels);
 
 	// If the CHART is not yet defined, create it
-	data = [['x'].concat(xTickLabels)].concat(data);
+	data = [['x'].concat(pivotColumns)].concat(data);
 	if (CHART === undefined) {
 		createPlot(data, labels, colors, chartType, groups);
 	} else {
 		reloadPlot(data, chartType, groups);
 	}
+
+	// It doesn't seem like there's a way through the c3 API to dynamically add or remove
+	// 	grid lines, so just do it manually with css
+	$('#checkmark-grid').prop('checked') ? 
+		$('.c3-ygrid').removeClass('hidden') : 
+		$('.c3-ygrid').addClass('hidden');
 
 	loadLegend(labels, chartType);
 
@@ -223,7 +260,7 @@ function plotData(data, labels, pivotColumns, colors) {
 
 	$('.chart-title').text(`${$('#select-query').val()}: ${formatter.format(startDate)}, ${startDate.getFullYear()}—${formatter.format(endDate)}, ${endDate.getFullYear()}`);
 
-	const cookieData = {
+	PLOT_INFO = {
 		data: data.slice(1),
 		labels: labels,
 		pivotColumns: pivotColumns,
@@ -231,44 +268,44 @@ function plotData(data, labels, pivotColumns, colors) {
 		options: getOptions()
 	};
 
-	setCookie('plot-data', JSON.stringify(cookieData), 60);
+	//setCookie('plot-info', JSON.stringify({colors: PLOT_INFO.colors, options: PLOT_INFO.options}), 365);
 
 	hideLoadingIndicator();
 }
 
 
-function plotDataFromCookie(cookieData) {
+function plotExistingData(plotInfo) {
 
-	for (key in cookieData.options) {
-		const option = cookieData.options[key];
+	for (key in plotInfo.options) {
+		const option = plotInfo.options[key];
 		if (option.id.startsWith('#checkmark')) {
 			$(option.id).prop('checked', option.value);
 		} else {
 			$(option.id).val(option.value);
 		}
 	}
-	plotData(cookieData.data, cookieData.labels, cookieData.pivotColumns, cookieData.colors);
+	plotData(plotInfo.data, plotInfo.labels, plotInfo.pivotColumns, plotInfo.colors);
 }
 
 
 function onPlottingOptionChange(optionElementID) {
 	
 	// Get data from cookie
-	const cookieData = $.parseJSON(getCookie('plot-data'));
+	//const cookieData = $.parseJSON(getCookie('plot-data'));
 	
 	// Update cookie data with new option value
-	var cookieDataOptions = cookieData.options;
-	for (optionName in cookieDataOptions) {
-		const thisOption = cookieDataOptions[optionName];
+	var plotInfoOptions = PLOT_INFO.options;
+	for (optionName in plotInfoOptions) {
+		const thisOption = plotInfoOptions[optionName];
 		if (optionElementID === thisOption.id) {
-			cookieData.options[optionName].value = optionElementID.startsWith('#checkmark') ?
+			PLOT_INFO.options[optionName].value = optionElementID.startsWith('#checkmark') ?
 				$(optionElementID).prop('checked') :
 				$(optionElementID).val();
 		}
 	}
 	
 	// plot
-	plotDataFromCookie(cookieData);
+	plotExistingData(PLOT_INFO);
 
 }
 
@@ -295,14 +332,17 @@ function queryIRMA(pivotColumns, fieldIDStr) {
 	const timeStep = $('#input-time_step');
 
 	const pivotColumnStr = `[${pivotColumns.join('], [')}]`;
-
+	
+	var sqlDateFormat = `format(value_date, 'yyyy')` 
+	if ($('#select-time_step').val() === 'month') sqlDateFormat += ` + '_' + right('0' + rtrim(month(value_date)), 2)`
+	
 	var sql = `
 		SELECT *
 		FROM
 			(SELECT 
 				Field_Name AS field_id,
 				value AS data_value,
-				lower(format(value_date, 'yyyy_MMM')) value_month
+				${sqlDateFormat} AS date_string
 			FROM
 				(SELECT 
 					Field_Name, 
@@ -327,7 +367,7 @@ function queryIRMA(pivotColumns, fieldIDStr) {
 			) t1
 		PIVOT (
 			sum(data_value)
-			FOR value_month IN (${pivotColumnStr})
+			FOR date_string IN (${pivotColumnStr})
 		) AS p
 	`;
 
@@ -355,8 +395,8 @@ function queryIRMA(pivotColumns, fieldIDStr) {
 						var isModifier = false;
 						for (i in pivotColumns) {
 							const columnName = pivotColumns[i];
-							const month = columnName.split('_')[1];
-							const multiplier = SUMMER_MONTHS.includes(month) ? thisInfo.summer_multiplier : thisInfo.winter_multiplier;
+							const month = parseInt(columnName.split('_')[1]);
+							const multiplier = month >= 5 && month <= 9 ? thisInfo.summer_multiplier : thisInfo.winter_multiplier;//SUMMER_MONTHS.includes(month) ? thisInfo.summer_multiplier : thisInfo.winter_multiplier;
 							theseMultipliers.push(multiplier);
 							// Only apply the multiplier if these data should be subtracted. Other multipliers will be 
 							//	applied on the fly depending on whether the user has that option checked
@@ -425,7 +465,7 @@ function queryIRMA(pivotColumns, fieldIDStr) {
 					}
 
 					// then loop through again and compose chartData
-					plotData(chartData, chartLabels, pivotColumns, chartColors);
+					plotData(chartData, chartLabels, pivotColumnsToTimeSeries(pivotColumns), chartColors);
 				}
 			}, 
 			failFilter=function(xhr, status, error) {

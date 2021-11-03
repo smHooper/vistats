@@ -5,7 +5,7 @@ from dateutil import relativedelta
 import pandas as pd
 
 
-BUS_TYPE_SEARCH_STRS = {'twt_bus_passengers':               ['twt', 'tundra wilderness tour'],
+BUS_TYPE_SEARCH_STRS = {'twt_bus_passengers':               ['twt', 'tundra wilderness tour', 'tour'],
                         'ke_bus_passengers':                ['kantishna', 'ke', 'experience'],
                         'dnht_bus_passengers':              ['history', 'dnht'],
                         'transit_bus_passengers':           ['vts', 'transit'],
@@ -54,8 +54,8 @@ def main(path, count_date):
 
         count = sheet[count_col].sum()
 
-        # Look for a sheet specifically for tek first. If one exists, it will likely have VTS or transit in the name
-        #   as well, so it could be confused with generally VTS numbers
+        # Look specifically for tek first. If one exists, it will likely have VTS or transit in the name
+        #   as well, so it could be confused with general VTS numbers
         if any([s in sheet_name.lower() for s in BUS_TYPE_SEARCH_STRS['tek_bus_passengers']]):
             data['tek_bus_passengers'] = count
 
@@ -84,7 +84,6 @@ def main(path, count_date):
 
             # Check if there was a sheet_name match by seeing if there was a new count added to the data dict
             if n_counts == len(data):
-                import pdb; pdb.set_trace()
                 raise RuntimeError(f'Bus type could not be extracted from sheet {sheet_name}')
 
     last_month_day = calendar.monthrange(count_year, count_month)[1]

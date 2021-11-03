@@ -1,7 +1,23 @@
+
+
+@font-face {
+	font-family: frutiger-roman;
+	src: url('../fonts/FrutigerLTStd-Roman.otf');
+}
+
+@font-face {
+	font-family: frutiger-light;
+	src: url('../fonts/FrutigerLTStd-Light.otf');
+}
+
 .hidden {
 	display: none;
 }
 
+h4.page-tile {
+	color: white;
+	padding-left: 1rem;
+}
 
 .background-blur {
 	backdrop-filter: blur(8px);
@@ -124,6 +140,10 @@ button:hover {
 }
 
 
+.checkmark-container input[type="checkbox"]:focus + label::before {
+	outline: rgb(0, 0, 0) auto 5px;
+}
+
 /*C3.js charts*/
 .tick line {
 	display: none; /*remove ticks on x axis*/
@@ -144,15 +164,7 @@ button:hover {
 
 
 /**** Loading indicator ******/
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
 
-/* safari */
-@-webkit-keyframes spin {
-  0% { -webkit-transform: rotate(0deg); }
-  100% { -webkit-transform: rotate(360deg); }
 
 #loading-indicator {
   position: fixed;
@@ -176,46 +188,15 @@ button:hover {
 	z-index: 9998;
 }
 
-.modal-background {
-	/*position: absolute;*/
-	z-index: 8998;
-	margin: 0;
-	position: fixed;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	/*height: 100%;
-	width: 100%;*/
-	opacity: 0.4;
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-.modal-background-light {
-	background-color: white;
-}
-
-.modal-background-dark {
-	background-color: black;
-}
-
-.modal {
-	position: fixed;
-	z-index: 8999;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	/*background-color: #fefefe;*/
-	border-radius: 16px;
-	-webkit-animation-name: slideIn;
-	-webkit-animation-duration: 0.3s;
-	animation-name: slideIn;
-	animation-duration: 0.3s;
-	/*display: flex;
-	justify-content: center;
-	flex-wrap: wrap;*/
-	display: block;
-	padding: 25px;
-	
+/* safari */
+@-webkit-keyframes spin {
+  0% { -webkit-transform: rotate(0deg); }
+  100% { -webkit-transform: rotate(360deg); }
 }
 
 /* animations */

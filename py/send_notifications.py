@@ -11,7 +11,7 @@ from email.mime import text as mimetext, multipart as mimemultipart, base as mim
 
 
 ERRORS = []
-LOG_DIR = r'\\inpdenards\vistats\send_notification_logs'
+LOG_DIR = r'\\inpdenaterm01\vistats\send_notifications_logs'
 
 def write_log():
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -148,9 +148,12 @@ def send_notifications(param_file, count_date):
                 li_elements=li_elements,
                 params=params
             )
-            recipient = f'{user}@nps.gov'
+
+            recipient = 'shooper@nps.gov'#f'{user}@nps.gov'
+
             try:
-                send_email(message, subject, params['mail_sender'], [recipient], server,  message_body_type='html')
+                print(user,'\n',message,'\n\n')
+                #send_email(message, subject, params['mail_sender'], [recipient], server,  message_body_type='html')
             except:
                 ERRORS.append({'context': f'sending message to {recipient}', 'error': traceback.format_exc()})
 

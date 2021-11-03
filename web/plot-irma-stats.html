@@ -30,6 +30,7 @@
 
 	<div class="plot-header-menu">
 		<a class="home-button" role="button" href="vistats-plot.html"></a>
+		<h4 class="page-tile">IRMA visitation stats</h4>
 	</div>
 
 	<div class="main-container">
@@ -68,28 +69,28 @@
 		
 			<div class="chart-footer" id="chart-footer">
 				<div class="chart-field-container">
-					<label class="chart-field-label">chart type</label>
-					<select class="chart-field-input" id="select-chart_type" value="stacked bar">
+					<!--<label class="chart-field-label">chart type</label>-->
+					<select class="chart-field-input plotting-option" id="select-chart_type" value="stacked bar">
 						<option clas="chart-select-option" value="stacked bar">stacked bar</option>
-						<option clas="chart-select-option" value="grouped bar">grouped bar</option>
+						<option clas="chart-select-option" value="bar">grouped bar</option>
 						<option clas="chart-select-option" value="line">line</option>
 					</select>
 				</div>
 				<div class="chart-field-container vertically-centered">
 					<label class="checkmark-container labeled-checkbox">horizontal grid
-						<input class="input-checkbox" type="checkbox" checked="checked" id="checkmark-grid">
+						<input class="input-checkbox plotting-option" type="checkbox" checked="checked" id="checkmark-grid">
 						<span class="checkmark"></span>
 					</label>
 				</div>
 				<div class="chart-field-container vertically-centered">
 					<label class="checkmark-container labeled-checkbox">apply multipliers
-						<input class="input-checkbox" type="checkbox" checked="checked" id="checkmark-multiplier">
+						<input class="input-checkbox plotting-option" type="checkbox" checked="checked" id="checkmark-multiplier">
 						<span class="checkmark"></span>
 					</label>
 				</div>
 				<div class="chart-field-container vertically-centered">
 					<label class="checkmark-container labeled-checkbox">option3
-						<input class="input-checkbox" type="checkbox" checked="checked" id="checkmark-option3">
+						<input class="input-checkbox plotting-option" type="checkbox" checked="checked" id="checkmark-option3">
 						<span class="checkmark"></span>
 					</label>
 				</div>
@@ -128,25 +129,17 @@
 	<script type="text/javascript">
 		$(document).ready(function() {
 			$(window).resize(resizeLayout);
+			$('.plotting-option').change((event) => {onPlottingOptionChange('#' + event.target.id)});
 
-			const plotCookie = getCookie('plot-data');
-			if (plotCookie === null) {
-				const now = new Date()
-				$('#input-start_date').val(`${now.getFullYear() - 2}-${('0' + (now.getMonth() + 1)).slice(-2)}`);
-				$('#input-end_date').val(`${now.getFullYear()}-${('0' + (now.getMonth() + 1)).slice(-2)}`);
-				runQuery();
-			} else {
-				const cookieData = $.parseJSON(plotCookie.split(';')[0]);
-				for (key in cookieData.options) {
-					const option = cookieData.options[key];
-					if (option.id.startsWith('#checkmark')) {
-						$(option.id).prop('checked', option.value);
-					} else {
-						$(option.id).val(option.value);
-					}
-				}
-				plotData(cookieData.data, cookieData.labels, cookieData.pivotColumns, cookieData.colors);
-			}
+			//const plotCookie = getCookie('plot-info');
+			//if (plotCookie == null) {
+			const now = new Date()
+			$('#input-start_date').val(`${now.getFullYear() - 2}-${('0' + (now.getMonth() + 1)).slice(-2)}`);
+			$('#input-end_date').val(`${now.getFullYear()}-${('0' + (now.getMonth() + 1)).slice(-2)}`);
+			runQuery();
+			/*} else {
+				plotExistingData($.parseJSON(plotCookie));
+			}*/
 		})
 
 	</script>

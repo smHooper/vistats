@@ -1,5 +1,7 @@
 
+
 body { 
+  /*font-family: frutiger-light;*/
   background-image: url('../imgs/vistats_data_entry_bg.jpg');
   background-repeat: no-repeat;
   background-attachment: fixed;
@@ -433,22 +435,23 @@ button:hover {
 	left: 0;
 	/*height: 100%;
 	width: 100%;*/
-	opacity: 0.4;
 }
 
 .modal-background-light {
-	background-color: white;
+	background-color: rgb(255,255,255); /* Fallback color */
+	background-color: rgba(255,255,255,0.4); /* White w/ opacity */
 }
 
 .modal-background-dark {
-	background-color: black;
+	background-color: rgb(0,0,0); /* Fallback color */
+	background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
     -webkit-animation-name: fadeIn;
     -webkit-animation-duration: 0.4s;
     animation-name: fadeIn;
     animation-duration: 0.4s;
 }
 
-.modal {
+#import-data-modal, #js-text-modal {
 	position: fixed;
 	z-index: 8999;
 	top: 50%;
@@ -560,35 +563,3 @@ button:hover {
 	outline: 0px !important;
 }
 
-/**** Loading indicator ******/
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* safari */
-@-webkit-keyframes spin {
-  0% { -webkit-transform: rotate(0deg); }
-  100% { -webkit-transform: rotate(360deg); }
-
-
-/* animations */
-@-webkit-keyframes slideIn {
-	from {transform: translate(-25%, -50%); opacity: 0}
-	to {transform: translate(-50%, -50%); opacity: 1;}
-}
-
-@keyframes slideIn {
-	from {transform: translate(-25%, -50%); opacity: 0}
-	to {transform: translate(-50%, -50%); opacity: 1;}
-}
-
-@-webkit-keyframes fadeIn {
-  from {opacity: 0} 
-  to {opacity: 1}
-}
-
-@keyframes fadeIn {
-  from {opacity: 0} 
-  to {opacity: 1}
-}

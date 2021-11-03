@@ -16,13 +16,13 @@ import pandas as pd
 
 pd.set_option('display.max_columns', None)
 
-BC_PERMIT_DB_NORTH_PATH = r"\\inpdenafiles\parkwide\Backcountry\Backcountry Permit Database\BC Permits Data %s.mdb"
-BC_PERMIT_DB_SOUTH_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\Backcountry Permit Database\BC Permits Data %s.mdb"
-CLIMBING_PERMIT_DB_PATH = r"\\inpdenatalk\talk\ClimbersDatabase\backend\DenaliNPSData.mdb"
-MSLC_VISITOR_COUNT_PATH = r"\\inpdenafiles\teams\Interp\Ops All, Statistics\MSLC Winter VC, Education\* Winter VC Stats.xlsx"
-INTERP_FACILITIES_PATH  = r"\\inpdenafiles\teams\Interp\Ops All, Statistics\FY{yy}\FY{yy} Stats.xlsx"
+BC_PERMIT_DB_NORTH_PATH = r"\\inpdenafiles02\parkwide\Backcountry\Backcountry Permit Database\BC Permits Data %s.mdb"
+BC_PERMIT_DB_SOUTH_PATH = r"\\INPDENAFILES11\talk\ClimbersDatabase\Backcountry Permit Database\BC Permits Data %s.mdb"
+CLIMBING_PERMIT_DB_PATH = r"\\INPDENAFILES11\talk\ClimbersDatabase\backend\DenaliNPSData.mdb"
+MSLC_VISITOR_COUNT_PATH = r"\\inpdenafiles02\teams\Interp\Ops All, Statistics\MSLC Winter VC, Education\* Winter VC Stats.xlsx"
+INTERP_FACILITIES_PATH  = r"\\inpdenafiles02\teams\Interp\Ops All, Statistics\FY{yy}\FY{yy} Stats.xlsx"
 
-LOG_DIR = r"\\inpdenards\vistats\retrieve_data_logs"
+LOG_DIR = r"\\inpdenaterm01\vistats\retrieve_data_logs"
 
 VEA_LOCATION_NAMES = {
     'Winter Visitor Center': 'mslc_visitors',
@@ -41,15 +41,17 @@ LODGE_BUS_FIELDS = {
 VALUE_LABEL_IDS = {'winter':
     [
         1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        10,
-        12
+        12,
+        13,
+        29,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38
     ], 'summer':
     [
         12,
@@ -182,6 +184,7 @@ def run_queries(params, log, query_date, current_date=None):
                 log['errors'].append({'action': 'reading %s BC permit DB' % side,
                                       'error': traceback.format_exc()
                                       })
+
             if len(bc_stats):
                 data.append(bc_stats\
                                 .rename(columns={c: c + '_{}_{}'.format(side, season) for c in bc_stats.columns})\
@@ -222,12 +225,15 @@ def run_queries(params, log, query_date, current_date=None):
             log['errors'].append({'action': 'querying climbing permit DB',
                                   'error': traceback.format_exc()
                                   })
+
         if len(user_nights):
+            user_nights = user_nights.reindex(columns=['Denali', 'Foraker'])
+
             climbing_stats = user_nights\
-                .drop(columns=['ClimberID'])\
                 .sum()\
                 .rename({'Denali': 'denali_climber_user_nights',
                          'Foraker': 'foraker_climber_user_nights'})
+
             climbing_stats['denali_climbers'] = len(user_nights['Denali'].dropna())
             climbing_stats['foraker_climbers'] = len(user_nights['Foraker'].dropna())
 

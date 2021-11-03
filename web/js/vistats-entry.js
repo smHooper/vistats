@@ -213,6 +213,7 @@ function configureForm(periodDate) {
 			value_labels.is_summer,
 			value_labels.is_winter,
 			value_labels.irma_html_element_id,
+			value_labels.irma_field_id,
 			value_labels.source_tag,
 			counts.value,
 			counts.last_edited_by,
@@ -238,7 +239,7 @@ function configureForm(periodDate) {
 				ON value_labels.id = counts.value_label_id 
 		WHERE irma_html_element_id IS NOT NULL AND irma_html_element_id <> ''
 		ORDER BY sort_order;
-	`
+	`;
 	let deferred = queryDB(sql);
 	deferred.then(
 		doneFilter=function(queryResultString){
@@ -705,11 +706,9 @@ function onImportButtonClick(event) {
 	event.returnValue = false;
 	const countDate = $('#month-select').val();
 
-	// check who should be contact for DVC counts
-	// check who should be contact for kennels
 	$(
 	`<div class="modal-background modal-background-dark" id="import-data-background"></div>
-	<div class="modal modal-light" id="import-data-modal">
+	<div class="modal-content modal-light" id="import-data-modal">
 		<div class="import-data-modal-row distribute-horizontally">
 			<h5>Upload data from a JV report</h5>
 			<label>Uploading for <strong>${$('#month-select > option:selected').text()}</strong></label>
@@ -816,9 +815,10 @@ function generateJavascript(event) {
 		if (!window.confirm('Some values are not yet verified. Are you sure you want to continue?')) return;
 	}
 
-	const selectedDate = new Date($('#month-select').val() + 'T12:00:00.000-08:00')
+	const selectedDate = new Date($('#month-select').val() + 'T12:00:00.000-08:00');
+	const monthNumber = selectedDate.getMonth() + 1;
 	const monthName = selectedDate.toLocaleString('default', { month: 'long' });
-	const irmaURL = `https://irma.nps.gov/STATS/Data/Input?month=${selectedDate.getMonth() + 1}&year=${selectedDate.getFullYear()}&unit=DENA`;
+	const irmaURL = `https://irma.nps.gov/STATS/Data/Input?month=${monthNumber}&year=${selectedDate.getFullYear()}&unit=DENA`;
 
 	var jsString = ''//`document.getElementById('periodComboId-inputEl').value = '${monthName}, ${selectedDate.getFullYear()}';\n`
 
@@ -835,6 +835,9 @@ function generateJavascript(event) {
 		}
 	})
 
+
+	isWinter = monthNumber < 5 || monthNumber > 9;
+	jsString += `document.getElementById(49727).value = ${isWinter ? 1 : 0};`
 
 	$(	
 	`<div class="modal-background modal-background-dark" id="js-modal-background"></div>

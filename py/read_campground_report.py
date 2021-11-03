@@ -117,8 +117,6 @@ def main(path, count_date):
         .astype(int) \
         .to_json()
 
-    #print(json_str) # need to send it to stdout for php to receive it
-
     return json_str
 
 

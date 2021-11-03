@@ -6,8 +6,8 @@ import retrieve_data
 import send_notifications
 
 
-RETRIEVE_DATA_PARAMS = r"\\inpdenards\vistats\config\retrieve_data_params.json"
-SEND_NOTIFICATIONS_PARAMS = r"\\inpdenards\vistats\config\send_notifications_params.json"
+RETRIEVE_DATA_PARAMS = r"\\inpdenaterm01\vistats\config\retrieve_data_params.json"
+SEND_NOTIFICATIONS_PARAMS = r"\\inpdenaterm01\vistats\config\send_notifications_params.json"
 
 
 def main():
