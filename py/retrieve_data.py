@@ -187,7 +187,7 @@ def run_queries(params, log, query_date, current_date=None):
 
             if len(bc_stats):
                 data.append(bc_stats\
-                                .rename(columns={c: c + '_{}_{}'.format(side, season) for c in bc_stats.columns})\
+                                .rename(columns={c: f'{c}_{side}' for c in bc_stats.columns})\
                                 .T\
                                 .reset_index()\
                                 .rename(columns={'index': 'value_label_id', 0: 'value'})
@@ -246,7 +246,7 @@ def run_queries(params, log, query_date, current_date=None):
             })
 
         data.append(pd.DataFrame({
-            'value_label_id': ['%s_%s' % (label, season) for label in climbing_stats.index],
+            'value_label_id': climbing_stats.index.tolist(),
             'value': climbing_stats.values}
         ))
 
