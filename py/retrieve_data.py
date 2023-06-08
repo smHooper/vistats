@@ -16,8 +16,8 @@ import pandas as pd
 
 pd.set_option('display.max_columns', None)
 
-BC_PERMIT_DB_NORTH_PATH = r"\\inpdenafiles02\parkwide\Backcountry\Backcountry Permit Database\BC Permits Data %s.mdb"
-BC_PERMIT_DB_SOUTH_PATH = r"\\INPDENAFILES11\talk\ClimbersDatabase\Backcountry Permit Database\BC Permits Data %s.mdb"
+BC_PERMIT_DB_NORTH_PATH = r"\\inpdenafiles02\parkwide\Backcountry\Backcountry Permit Database\BC Permits Data {year}.mdb"
+BC_PERMIT_DB_SOUTH_PATH = r"\\INPDENAFILES11\talk\ClimbersDatabase\Backcountry Permit Database\Backcountry Database\{year} BC Program\BC Permits Data {year}.mdb"
 CLIMBING_PERMIT_DB_PATH = r"\\INPDENAFILES11\talk\ClimbersDatabase\backend\DenaliNPSData.mdb"
 MSLC_VISITOR_COUNT_PATH = r"\\inpdenafiles02\teams\Interp\Ops All, Statistics\MSLC Winter VC, Education\* Winter VC Stats.xlsx"
 INTERP_FACILITIES_PATH  = r"\\inpdenafiles02\teams\Interp\Ops All, Statistics\FY{yy}\FY{yy} Stats.xlsx"
@@ -37,7 +37,8 @@ LODGE_BUS_FIELDS = {
 }
 
 # Define the label IDs that should be automatable so that if the associated query returns an empty result, it can be
-#   filled with a 0 to distinguish them from values that have yet to be filled in
+#   filled with a 0 to distinguish them from values that have yet to be filled in. I can't just query the value_labels
+#   table for all winter or summmer fields because fields that aren't automatably queryable shouldn't be filled with a 0
 VALUE_LABEL_IDS = {'winter':
     [
         1,
@@ -170,7 +171,7 @@ def run_queries(params, log, query_date, current_date=None):
     '''.format(month=query_month, year=query_year)
 
     for side, path in {'north': BC_PERMIT_DB_NORTH_PATH, 'south': BC_PERMIT_DB_SOUTH_PATH}.items():
-        bc_permit_db_path = path % query_year
+        bc_permit_db_path = path.format(year=query_year)
         if not os.path.isfile(bc_permit_db_path):
             log['errors'].append({'action': 'reading %s BC permit DB' % side,
                                   'error': 'BC Permit DB for {side} side does not exist: {path}'
@@ -355,8 +356,11 @@ def run_queries(params, log, query_date, current_date=None):
         .replace(year=query_year + 1 if query_month >= 10 else query_year)\
         .strftime('%y')
     all_kennels = pd.DataFrame()
+    kennels_excel_path = INTERP_FACILITIES_PATH.format(yy=two_digit_fiscal_year)
+    if not os.path.isfile(kennels_excel_path):
+        kennels_excel_path = os.path.join(os.path.dirname(INTERP_FACILITIES_PATH), os.path.basename(INTERP_FACILITIES_PATH))
     try:
-        all_kennels = pd.read_excel(INTERP_FACILITIES_PATH.format(yy=two_digit_fiscal_year), sheet_name='Kennels')\
+        all_kennels = pd.read_excel(kennels_excel_path, sheet_name='Kennels')\
             .set_index('Date')
     except:
         log['errors'].append({'action': 'reading Kennels spreadsheet',
@@ -425,10 +429,8 @@ def run_queries(params, log, query_date, current_date=None):
     # Only run this query for summer months
     if season == 'summer':
         try:
-            engine = sqlalchemy.create_engine(
-                'postgresql://{username}:{password}@{ip_address}:{port}/{db_name}'.format(**params['savage_db_credentials'])
-            )
-
+            engine_uri = sqlalchemy.engine.URL.create('postgresql', **params['savage_db_credentials'])
+            engine = sqlalchemy.create_engine(engine_uri)
             with engine.connect() as conn:
                 bikes = pd.read_sql(sql_template.format(label='cyclists_past_savage', table='cyclists', start=start_date, end=end_date), conn)
                 road_lottery = pd.read_sql(lottery_sql.format(start=start_date, end=end_date), conn)
@@ -472,9 +474,8 @@ def run_queries(params, log, query_date, current_date=None):
         GROUP BY value_label_id
     '''.format(start=start_date, end=end_date)
     try:
-        engine = sqlalchemy.create_engine(
-            'postgresql://{username}:{password}@{ip_address}:{port}/{db_name}'.format(**params['landings_db_credentials'])
-        )
+        engine_uri = sqlalchemy.engine.URL.create('postgresql', **params['landings_db_credentials'])
+        engine = sqlalchemy.create_engine(engine_uri)
         with engine.connect() as conn:
             data.extend([
                 pd.read_sql(landings_sql, conn),
@@ -533,9 +534,8 @@ def main(param_file, current_date=None):
     counts = run_queries(params, log, query_date, current_date)
 
     try:
-        engine = sqlalchemy.create_engine(
-            'postgresql://{username}:{password}@{ip_address}:{port}/{db_name}'.format(**params['vistats_db_credentials'])
-        )
+        engine_uri = sqlalchemy.engine.URL.create('postgresql', **params['vistats_db_credentials'])
+        engine = sqlalchemy.create_engine(engine_uri)
         with engine.connect() as conn, conn.begin():
             # replace labels with IDs
             label_ids = pd.read_sql("SELECT id, retrieve_data_label FROM value_labels", conn) \
