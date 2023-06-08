@@ -181,11 +181,9 @@ def send_notifications(param_file, count_date):
             value_labels.{season_field}
 		ORDER BY id;
     '''
-    engine = sqlalchemy.create_engine(
-        'postgresql://{username}:{password}@{ip_address}:{port}/{db_name}'.format(**params['vistats_db_credentials'])
-    )
-    with engine.connect() as conn:
-        data = pd.read_sql(query_str, conn)
+    engine_uri = sqlalchemy.engine.URL.create('postgresql', **params['vistats_db_credentials'])
+    engine = sqlalchemy.create_engine(engine_uri)
+    data = pd.read_sql(query_str, engine)
 
 
     message_template = '''
