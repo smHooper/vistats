@@ -9,6 +9,7 @@ function runQuery($ipAddress, $port, $dbName, $username, $password, $queryStr, $
 	/*return result of a postgres query as an array*/
 
 	$conn = pg_connect("hostaddr=$ipAddress port=$port dbname=$dbName user=$username password=$password");
+	
 	if (!$conn) {
 		return array("db connection failed");
 	}
@@ -16,6 +17,7 @@ function runQuery($ipAddress, $port, $dbName, $username, $password, $queryStr, $
 	$result = pg_query_params($conn, $queryStr, $parameters);
 	if (!$result) {
 	  	echo pg_last_error();
+	  	return array();
 	}
 
 	$resultArray = pg_fetch_all($result) ? pg_fetch_all($result) : array("query returned an empty result");
@@ -27,10 +29,11 @@ function runQueryWithinTransaction($conn, $queryStr, $parameters=array()) {
 
 	$result = pg_query_params($conn, $queryStr, $parameters);
 	if (!$result) {
-		$err = pg_last_error();
-		echo $err;
+		$err = array(pg_last_error($conn));
 	  	return $err;
 	}
+	$pgFetch = pg_fetch_all($result);
+	return $pgFetch ? $pgFetch : null;
 
 }
 
@@ -115,8 +118,9 @@ if (isset($_POST['submit']) && isset($_FILES['uploadedFile'])) {
 			// this is from the import-data-modal form
 			$countDate = $_POST['countDate'];
 			$scriptName = strtolower($_POST['reportType']) === 'campgrounds' ? 'read_campground_report.py' : 'read_bus_ridership_report.py';
-			$cmd = "conda activate d:/vistats/vistats && python ../py/$scriptName \"$uploadFilePath\" $countDate 2>&1 && conda deactivate";
+			$cmd = "conda activate vistats && python ../py/$scriptName \"$uploadFilePath\" $countDate && conda deactivate";
 			echo shell_exec($cmd);
+
 			deleteFile($uploadFilePath);
 			//print_r($cmd);
 		} else {
@@ -187,17 +191,16 @@ if (isset($_POST['action'])) {
 		if (isset($_POST['queryString']) && isset($_POST['params'])) {
 			// If there are multiple SQL statements, execute as a single transaction
 			if (gettype($_POST['queryString']) == 'array') {
-				$resultArray = array();
-				$dbname = $_POST['dbname'];
-				$conn = pg_connect("hostaddr=$dbhost port=$dbport dbname=vistats user=$username password=$password");
+				$conn = pg_connect("hostaddr=$dbhost port=$dbport dbname=$dbname user=$username password=$password");
 				if (!$conn) {
 					echo "ERROR: Could not connect DB";
 					exit();
 				}
 
-				// Begin transations
+				// Begin transaction
 				pg_query($conn, 'BEGIN');
 
+				$resultArray = array();
 				for ($i = 0; $i < count($_POST['params']); $i++) {
 					// Make sure any blank strings are converted to nulls
 					$params = $_POST['params'][$i];
@@ -207,17 +210,20 @@ if (isset($_POST['action'])) {
 						}
 					}
 					$result = runQueryWithinTransaction($conn, $_POST['queryString'][$i], $params);
-					if (strpos($result, 'ERROR') !== false) {
+					if (strpos(json_encode($result), 'ERROR') !== false) {
 						// roll back the previous queries
 						pg_query($conn, 'ROLLBACK');
 						echo $result, " from the query $i ", $_POST['queryString'][$i], ' with params ', json_encode($params);
 						exit();
 					}
+
+					$resultArray[$i] = $result;
 				}
 
 				// COMMIT the transaction
 				pg_query($conn, 'COMMIT');
-				echo "success";
+
+				echo json_encode($resultArray);
 
 			} else {
 				$params = $_POST['params'];
