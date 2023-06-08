@@ -118,7 +118,7 @@ if (isset($_POST['submit']) && isset($_FILES['uploadedFile'])) {
 			// this is from the import-data-modal form
 			$countDate = $_POST['countDate'];
 			$scriptName = strtolower($_POST['reportType']) === 'campgrounds' ? 'read_campground_report.py' : 'read_bus_ridership_report.py';
-			$cmd = "conda activate vistats && python ../py/$scriptName \"$uploadFilePath\" $countDate && conda deactivate";
+			$cmd = "conda activate vistats && python ../py/$scriptName \"$uploadFilePath\" $countDate 2>&1 && conda deactivate";
 			echo shell_exec($cmd);
 
 			deleteFile($uploadFilePath);
@@ -238,16 +238,6 @@ if (isset($_POST['action'])) {
 			}
 		} else {
 			echo "php query failed";//false;
-		}
-	}
-
-	if ($_POST['action'] == 'importData') {
-		if (isset($_POST['geojsonString']) && isset($_POST['trackInfoString'])) {
-			$geojson = $_POST['geojsonString'];
-			$trackInfo = $_POST['trackInfoString'];
-			$stderrPath = $_POST['stderrPath'];
-			$cmd = "conda activate overflights && python ..\\scripts\\import_from_editor.py $geojson $trackInfo $import_param_file 2> $stderrPath && conda deactivate";
-			echo shell_exec($cmd);
 		}
 	}
 
