@@ -18,7 +18,6 @@ pd.set_option('display.max_columns', None)
 
 BC_PERMIT_DB_NORTH_PATH = r"\\inpdenafiles02\parkwide\Backcountry\Backcountry Permit Database\BC Permits Data {year}.mdb"
 BC_PERMIT_DB_SOUTH_PATH = r"\\INPDENAFILES11\talk\ClimbersDatabase\Backcountry Permit Database\Backcountry Database\{year} BC Program\BC Permits Data {year}.mdb"
-CLIMBING_PERMIT_DB_PATH = r"\\INPDENAFILES11\talk\ClimbersDatabase\backend\DenaliNPSData.mdb"
 MSLC_VISITOR_COUNT_PATH = r"\\inpdenafiles02\teams\Interp\Ops All, Statistics\MSLC Winter VC, Education\* Winter VC Stats.xlsx"
 INTERP_FACILITIES_PATH  = r"\\inpdenafiles02\teams\Interp\Ops All, Statistics\FY{yy}\FY{yy} Stats.xlsx"
 
@@ -30,10 +29,13 @@ VEA_LOCATION_NAMES = {
 }
 
 
-LODGE_BUS_FIELDS = {
+BUS_FIELDS = {
     'CDN': 'camp_denali_bus_passengers',
     'DBL': 'denali_backcountry_lodge_bus_passengers',
-    'KRH': 'kantishna_roadhouse_bus_passengers'
+    'KRH': 'kantishna_roadhouse_bus_passengers',
+    'TWT': 'twt_bus_passengers',
+    'DNH': 'dnht_bus_passengers',
+    'KXP': 'ke_bus_passengers'
 }
 
 # Define the label IDs that should be automatable so that if the associated query returns an empty result, it can be
@@ -59,6 +61,10 @@ VALUE_LABEL_IDS = {'winter':
         13,
         14,
         15,
+        16,
+        18,
+        19,
+        20,
         21,
         22,
         23,
@@ -197,59 +203,63 @@ def run_queries(params, log, query_date, current_date=None):
     ##############################################################################################################
     ################################### climbing permits #########################################################
     ##############################################################################################################
-    sql = '''
-        TRANSFORM count(*) AS val
+    sql = f'''
         SELECT 
-            tblGroupsRes.ClimberID
-        FROM 
+            lower(mountain_name) AS mountain_name, 
+            count(*) AS climbers, 
+            sum(days) AS climber_user_nights
+        FROM
             (
-                qryGroupsDates INNER JOIN tblGroupsRes ON qryGroupsDates.GroupID = tblGroupsRes.GroupID
-            ) INNER JOIN (
-            tblGroupsResRoutes INNER JOIN tblRoutes ON tblGroupsResRoutes.RouteCode = tblRoutes.RouteCode
-            ) ON tblGroupsRes.GroupResID = tblGroupsResRoutes.GroupResID
-        WHERE 
-            tblGroupsRes.Status <>'CAN' AND 
-            Month(qryGroupsDates.date_) = {month} AND
-            Year(qryGroupsDates.date_) = {year}
-        GROUP BY Month(qryGroupsDates.date_), tblGroupsRes.ClimberID
-        PIVOT tblRoutes.Mountain;
-    '''.format(month=query_month, year=query_year)
-
-    if not os.path.exists(CLIMBING_PERMIT_DB_PATH):
+                SELECT DISTINCT 
+                    expedition_member_id, 
+                    mountain_name, 
+                    least(coalesce(actual_return_date, now())::date, '{end_date}'::date) - greatest(actual_departure_date, '{start_date}'::date) AS days 
+                FROM registered_climbs_view
+                WHERE 
+                    actual_departure_date IS NOT NULL AND 
+                    coalesce(special_group_type_code, -1) <> 3 AND 
+                    actual_departure_date BETWEEN '{start_date}' AND '{end_date}'::date - 1
+            ) _ 
+        GROUP BY mountain_name;
+    '''
+    engine_uri = sqlalchemy.engine.URL.create('postgresql', **params['climberdb_credentials'])
+    engine = sqlalchemy.create_engine(engine_uri)
+    # if not os.path.exists(CLIMBING_PERMIT_DB_PATH):
+    #     log['errors'].append({'action': 'querying climbing permit DB',
+    #                           'error': 'File does not exist: %s' % CLIMBING_PERMIT_DB_PATH})
+    # else:
+    user_nights = pd.DataFrame()
+    try:
+        user_nights = pd.read_sql(sql, engine)
+    except:
         log['errors'].append({'action': 'querying climbing permit DB',
-                              'error': 'File does not exist: %s' % CLIMBING_PERMIT_DB_PATH})
+                              'error': traceback.format_exc()
+                              })
+    
+    if len(user_nights):
+        # transform query results by
+            # setting the index 
+            # making sure both denali and foraker are in the data
+            # filling  nulls
+            # resetting the index to get mountain name as a column
+            # the unpivoting to make it flat again
+        climbing_stats = user_nights\
+            .set_index('mountain_name')\
+            .reindex(['denali', 'foraker'])\
+            .fillna(0)\
+            .reset_index()\
+            .melt(id_vars='mountain_name', var_name='value_label_id')
+        climbing_stats.value_label_id = climbing_stats.mountain_name + '_' + climbing_stats.value_label_id
+        climbing_stats = climbing_stats.reindex(columns=['value_label_id', 'value'])
     else:
-        user_nights = pd.DataFrame()
-        try:
-            user_nights = query_access_db(CLIMBING_PERMIT_DB_PATH, sql)
-        except:
-            log['errors'].append({'action': 'querying climbing permit DB',
-                                  'error': traceback.format_exc()
-                                  })
+        climbing_stats = pd.DataFrame([
+            {'value_label_id': 'denali_climber_user_nights', 'value': 0},
+            {'value_label_id': 'foraker_climber_user_nights', 'value': 0},
+            {'value_label_id': 'denali_climbers', 'value': 0},
+            {'value_label_id': 'foraker_climbers', 'value': 0}
+        ])
 
-        if len(user_nights):
-            user_nights = user_nights.reindex(columns=['Denali', 'Foraker'])
-
-            climbing_stats = user_nights\
-                .sum()\
-                .rename({'Denali': 'denali_climber_user_nights',
-                         'Foraker': 'foraker_climber_user_nights'})
-
-            climbing_stats['denali_climbers'] = len(user_nights['Denali'].dropna())
-            climbing_stats['foraker_climbers'] = len(user_nights['Foraker'].dropna())
-
-        else:
-            climbing_stats = pd.Series({
-                'denali_climber_user_nights': 0,
-                'foraker_climber_user_nights': 0,
-                'denali_climbers': 0,
-                'foraker_climbers': 0
-            })
-
-        data.append(pd.DataFrame({
-            'value_label_id': climbing_stats.index.tolist(),
-            'value': climbing_stats.values}
-        ))
+    data.append(climbing_stats)
 
 
     ###########################################################################################################
@@ -356,11 +366,8 @@ def run_queries(params, log, query_date, current_date=None):
         .replace(year=query_year + 1 if query_month >= 10 else query_year)\
         .strftime('%y')
     all_kennels = pd.DataFrame()
-    kennels_excel_path = INTERP_FACILITIES_PATH.format(yy=two_digit_fiscal_year)
-    if not os.path.isfile(kennels_excel_path):
-        kennels_excel_path = os.path.join(os.path.dirname(INTERP_FACILITIES_PATH), os.path.basename(INTERP_FACILITIES_PATH))
     try:
-        all_kennels = pd.read_excel(kennels_excel_path, sheet_name='Kennels')\
+        all_kennels = pd.read_excel(INTERP_FACILITIES_PATH.format(yy=two_digit_fiscal_year), sheet_name='Kennels')\
             .set_index('Date')
     except:
         log['errors'].append({'action': 'reading Kennels spreadsheet',
@@ -386,12 +393,21 @@ def run_queries(params, log, query_date, current_date=None):
         GROUP BY extract(month FROM datetime)
     '''
 
-    lodge_bus_sql = '''
+    bus_sql = '''
         SELECT bus_type AS value_label_id, sum(n_passengers) AS value 
         FROM buses 
         WHERE 
             datetime BETWEEN '{start}' AND '{end}' AND
-            bus_type in (SELECT code FROM bus_codes WHERE is_lodge_bus)
+            bus_type in ('{bus_codes}')
+        GROUP BY bus_type, extract(month FROM datetime)
+    '''.format(start=start_date, end=end_date, bus_codes="', '".join(BUS_FIELDS.keys()))
+
+    transit_sql = '''
+        SELECT 'transit_bus_passengers' AS value_label_id, sum(n_passengers) AS value 
+        FROM buses 
+        WHERE 
+            datetime BETWEEN '{start}' AND '{end}' AND
+            bus_type in ('SHU', 'CMP')
         GROUP BY bus_type, extract(month FROM datetime)
     '''.format(start=start_date, end=end_date)
 
@@ -445,9 +461,11 @@ def run_queries(params, log, query_date, current_date=None):
                                               'value': pd.concat([employees, researchers]).value.sum()
                                               })
 
-                lodge_buses = pd.read_sql(lodge_bus_sql, conn)\
-                    .replace({'value_label_id': LODGE_BUS_FIELDS})
-            data.extend([bikes, road_lottery, accessibility, photographers, non_rec_users, lodge_buses, reserved_povs, guided_cua_povs])
+                tours = pd.read_sql(bus_sql, conn)\
+                    .replace({'value_label_id': BUS_FIELDS})
+                transit = pd.read_sql(transit_sql, conn)
+                
+            data.extend([bikes, road_lottery, accessibility, photographers, non_rec_users, tours, transit, reserved_povs, guided_cua_povs])
         except:
             log['errors'].append({'action': 'querying Savage DB',
                                   'error': traceback.format_exc()
@@ -489,7 +507,6 @@ def run_queries(params, log, query_date, current_date=None):
     counts = pd.concat(data, sort=False).drop_duplicates(subset='value_label_id', keep='last').fillna(0)
 
     return counts
-
 
 def main(param_file, current_date=None):
 
