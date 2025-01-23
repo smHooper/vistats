@@ -9,7 +9,7 @@ function runQuery($ipAddress, $port, $dbName, $username, $password, $queryStr, $
 	/*return result of a postgres query as an array*/
 
 	$conn = pg_connect("hostaddr=$ipAddress port=$port dbname=$dbName user=$username password=$password");
-	
+
 	if (!$conn) {
 		return array("db connection failed");
 	}
