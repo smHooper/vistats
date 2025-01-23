@@ -18,7 +18,7 @@ SITE_IDS = {
     'PCXXWT': 'Wonder Lake'
 }
 
-COLUMNS = ['TYPE1', 'PROPERTY1', 'ARRIVAL', 'DEPART', 'TOTALPAX', 'FEATURE1']
+COLUMNS = ['TYPE1', 'PROPERTY1', 'ARRIVAL', 'DEPART', 'FEATURE1']
 
 FIELD_NAMES = {
     'Riley Creek tent':     'riley_cg_stays_tent_only',
@@ -61,7 +61,7 @@ def main(path, count_date):
 
     # Define the site type (vehicle or tent). It's apparently incumbent on the reservation agent to fill out a
     #   non-requried field to indicate if the campers using the site do or do not have a vehicle, so many get left
-    #   blank. The vast majority of campers arrive in their own vehicle though so it's safe to assume any null values
+    #   blank. The vast majority of campers arrive in their own vehicle though, so it's safe to assume any null values
     #   represent vehicle sites
     data['site_type'] = data.FEATURE1\
         .replace({'RA': 'vehicle', 'TA': 'tent'})\
@@ -109,6 +109,7 @@ def main(path, count_date):
     # Turn site + site_type into retrieve_data labels so the web app knows what fields the values belong to
     counts.site_type = counts.site + ' ' + counts.site_type
     counts['retrieve_data_label'] = counts.site_type.replace(FIELD_NAMES)
+
     json_str = counts \
         .drop(columns=['site', 'site_type']) \
         .set_index('retrieve_data_label') \

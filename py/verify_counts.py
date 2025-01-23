@@ -1,6 +1,7 @@
 import os
 import sys
 import sqlalchemy
+import urllib.parse
 import pandas as pd
 from datetime import datetime
 from dateutil import relativedelta
@@ -11,18 +12,21 @@ import retrieve_data
 def main(param_file, out_path, count_year=None):
 
     params = retrieve_data.read_json_params(param_file)
-
+    params['vistats_db_credentials']['password'] = urllib.parse.quote(params['vistats_db_credentials']['password'])
     dena_engine = sqlalchemy.create_engine(
-        'postgresql://{username}:{password}@{ip_address}:{port}/{db_name}'
+       'postgresql://{username}:{password}@{host}:{port}/{database}'
             .format(**params['vistats_db_credentials'])
     )
     irma_engine = sqlalchemy.create_engine(
-        'mssql+pyodbc://{server_name}/{db_name}?driver=SQL Server Native Client 11.0'
-            .format(**params["irma_db_credentials"])
+        sqlalchemy.engine.URL.create(
+            'mssql+pyodbc',
+            query={'driver': 'SQL Server'},
+            **params['irma_db_credentials']
+        )
     )
 
     now = datetime.now()
-    count_year = count_year if count_year else now.year - 1
+    count_year = int(count_year) if count_year else now.year - 1
     start_date = f'{count_year}-1-1'
     end_date = f'{now.year}-1-1'
 
@@ -59,7 +63,7 @@ def main(param_file, out_path, count_year=None):
                 '_' + right('0' + rtrim(month(FNV_Collected_Date)), 2) +  
                 '_' + lower(Field_Name) 
                 AS count_id
-        FROM VIEW_DENA_FieldsAndValues 
+        FROM USR.VIEW_DENA_FieldsAndValues 
         WHERE 
             Field_Name IN ('{irma_field_id_str}') AND
             Field_Name_Value IS NOT NULL AND
@@ -68,7 +72,7 @@ def main(param_file, out_path, count_year=None):
     irma_counts = pd.read_sql(irma_sql, irma_engine)\
         .set_index('count_id')
 
-    label_ids = pd.read_sql("SELECT id, retrieve_data_label FROM value_labels", dena_engine) \
+    label_ids = pd.read_sql("SELECT id, retrieve_data_label FROM value_labels UNION SELECT 13 AS id, 'scenic_landings_south' AS retreive_data_label;", dena_engine) \
                 .set_index('retrieve_data_label')\
                 .id.to_dict()
     recounts = []
@@ -79,13 +83,14 @@ def main(param_file, out_path, count_year=None):
         end_datetime = start_datetime + relativedelta.relativedelta(months=1)
         print(f'''\r{start_datetime.strftime('%B')}...''')
         counts = retrieve_data.run_queries(params, {'errors': [], 'messages': []}, start_datetime, end_datetime)
+        counts = counts.loc[counts.value_label_id.isin(label_ids)]
         counts['count_month'] = count_month
         counts.value_label_id = counts.value_label_id.replace(label_ids).astype(int)
         recounts.append(counts)
 
     recounts = pd.concat(recounts)\
         .merge(value_labels, left_on='value_label_id', right_on='id', how='left')\
-        .dropna(subset=['irma_field_id'], inplace=True)
+        .dropna(subset=['irma_field_id'])
     recounts['count_id'] = [
         f'{count_year}_{row.count_month :0>2}_{row.irma_field_id.lower()}'
         for _, row in recounts.iterrows()
@@ -93,8 +98,11 @@ def main(param_file, out_path, count_year=None):
     recounts.set_index('count_id', inplace=True)
 
     joined = recounts.join(irma_counts, lsuffix='_dena', rsuffix='_irma') #.join() defaults to joining on index
-    joined['diff'] = joined.value_dena - joined.value_irma
-
+    joined['diff'] = joined.value_dena.fillna(0) - joined.value_irma.fillna(0)
+    joined['month_name'] = [datetime(count_year, m, 1).strftime('%b') for m in joined.count_month]
+    joined = joined.loc[joined['diff'] > 0,
+               ['dena_label', 'retrieve_data_label', 'value_label_id', 'count_month', 'month_name', 'value_dena', 'value_irma', 'diff']
+    ]
     joined.to_csv(out_path)
 
 
