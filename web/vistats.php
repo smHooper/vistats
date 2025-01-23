@@ -39,9 +39,9 @@ function runQueryWithinTransaction($conn, $queryStr, $parameters=array()) {
 
 
 function queryMSSQL($conn, $sql) {
-	
+
 	$stmt = sqlsrv_query($conn, $sql);
-	
+
 	if ($stmt === false) {
 		return sqlsrv_errors();
 	}
@@ -59,19 +59,19 @@ function runCmd($cmd) {
 	// can't get this to work for python commands because conda throws
 	// an error in conda-script (can't import cli.main)
 	$process = proc_open(
-		$cmd, 
+		$cmd,
 		array(
 			0 => array("pipe", "r"), //STDIN
 		    1 => array('pipe', 'w'), // STDOUT
 		    2 => array('pipe', 'w')  // STDERR
-		), 
+		),
 		$pipes,
 		NULL,
 		NULL,
 		array('bypass_shell' => false)
 	);
 
-	$resultObj; 
+	$resultObj;
 
 	if (is_resource($process)) {
 
@@ -108,12 +108,12 @@ function deleteFile($filePath) {
 
 
 if (isset($_POST['submit']) && isset($_FILES['uploadedFile'])) {
-	
+
 	$fileName = preg_replace('/[^\w.]+/', '_', basename($_FILES['uploadedFile']['name']));
 	$uploadFilePath = "temp_files/$fileName";
-	
+
 	if (move_uploaded_file($_FILES['uploadedFile']['tmp_name'], $uploadFilePath)) {
-		
+
 		if (isset($_POST['reportType'])) {
 			// this is from the import-data-modal form
 			$countDate = $_POST['countDate'];
