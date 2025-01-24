@@ -238,7 +238,8 @@ def send_notifications(param_file, count_date):
         '''
 
     # For each user, check if any of the fields they're responsible for have yet to be verified
-    for user, roles in user_roles.items():
+    for user, user_info in user_roles.items():
+        roles = user_info['roles']
         unverified_fields = data.loc[data.role.isin(roles), 'dena_label']
         if len(unverified_fields):
             # Compose the email
@@ -249,7 +250,7 @@ def send_notifications(param_file, count_date):
                 img_html=img_html
             )
 
-            recipient = f'{user}@nps.gov'
+            recipient = user_info['email']
 
             try:
                 send_email(message, subject, params['mail_sender'], [recipient], server, message_body_type='html')
