@@ -108,9 +108,14 @@
 								username = usernameString.trim().toLowerCase();
 								$('#username').text(username);
 								getUserRoles()
-									.then(
-										(jsonString) => {
-										USER_ROLES = $.parseJSON(jsonString);
+									.then(jsonString => {
+										USER_ROLES = Object.fromEntries(
+											Object.entries(
+												$.parseJSON(jsonString)
+											).map(
+												([username, info]) => [username, info.roles]
+											)
+										)
 										configureForm().then(resizeColumns);
 
 									})
