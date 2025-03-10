@@ -182,29 +182,27 @@ def run_queries(params, log, query_date, current_date=None):
         GROUP BY constant;
     '''.format(month=query_month, year=query_year)
 
-    for side, path in {'north': BC_PERMIT_DB_NORTH_PATH, 'south': BC_PERMIT_DB_SOUTH_PATH}.items():
-        bc_permit_db_path = path.format(year=query_year)
-        if not os.path.isfile(bc_permit_db_path):
-            log['errors'].append({'action': 'reading %s BC permit DB' % side,
-                                  'error': 'BC Permit DB for {side} side does not exist: {path}'
-                                    .format(side=side, path=bc_permit_db_path)
+    bc_permit_db_path = BC_PERMIT_DB_NORTH_PATH.format(year=query_year)
+    if not os.path.isfile(bc_permit_db_path):
+        log['errors'].append({'action': 'reading BC permit DB',
+                              'error': 'BC Permit DB does not exist: ' + path
+        })
+    else:
+        bc_stats = pd.DataFrame()
+        try:
+            bc_stats = query_access_db(bc_permit_db_path, users_sql)
+        except:
+            log['errors'].append({'action': 'reading BC permit DB',
+                                  'error': traceback.format_exc()
                                   })
-        else:
-            bc_stats = pd.DataFrame()
-            try:
-                bc_stats = query_access_db(bc_permit_db_path, users_sql)
-            except:
-                log['errors'].append({'action': 'reading %s BC permit DB' % side,
-                                      'error': traceback.format_exc()
-                                      })
 
-            if len(bc_stats):
-                data.append(bc_stats\
-                                .rename(columns={c: f'{c}_{side}' for c in bc_stats.columns})\
-                                .T\
-                                .reset_index()\
-                                .rename(columns={'index': 'value_label_id', 0: 'value'})
-                            )
+        if len(bc_stats):
+            data.append(bc_stats\
+                            .rename(columns={c: f'{c}_north' for c in bc_stats.columns})\
+                            .T\
+                            .reset_index()\
+                            .rename(columns={'index': 'value_label_id', 0: 'value'})
+                        )
 
     ##############################################################################################################
     ################################### climbing permits #########################################################
@@ -218,7 +216,10 @@ def run_queries(params, log, query_date, current_date=None):
             (
                 SELECT DISTINCT 
                     expedition_member_id, 
-                    mountain_name, 
+                    CASE 
+                        WHEN mountain_name NOT IN ('Denali', 'Foraker') THEN 'backcountry'
+                        ELSE mountain_name 
+                    END AS mountain_name
                     least(coalesce(actual_return_date, now())::date, '{end_date}'::date) - greatest(actual_departure_date, '{start_date}'::date) AS days 
                 FROM registered_climbs_view
                 WHERE 
@@ -254,7 +255,7 @@ def run_queries(params, log, query_date, current_date=None):
         #   the unpivoting to make it flat again
         climbing_stats = user_nights \
             .set_index('mountain_name') \
-            .reindex(['denali', 'foraker']) \
+            .reindex(['denali', 'foraker', 'backcountry']) \
             .fillna(0) \
             .reset_index() \
             .melt(id_vars='mountain_name', var_name='value_label_id')
