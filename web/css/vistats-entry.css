@@ -295,6 +295,9 @@ button:hover {
 	border-radius: 7px;
 	cursor: pointer;
 }
+#alert-modal .generic-button {
+	margin-bottom: 0;
+}
 
 .secondary-button, .generic-button.secondary-button {
 	background-color: hsl(195, 10%, 45%);

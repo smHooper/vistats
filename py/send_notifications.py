@@ -39,7 +39,7 @@ MESSAGE_TEMPLATE = '''
             </ul>
             <p>
                 <br>
-                If you have any questions, you can contact {params[admin_email]}. <strong>This is an automated message, so do not reply directly to it.</strong>
+                If you have any questions, you can contact <a href="mailto:{params[admin_email]}>{params[admin_email]}</a>. <strong>This is an automated message, so do not reply directly to it.</strong>
                 <br>
                 Thanks!
             </p>
@@ -229,7 +229,7 @@ class NotificationReward:
         joke = response_json['joke']
         html = f'''
             <p>😂😂As a reward for your service to the NPS Visitor Stats program, enjoy of random dad joke courtesy of <a href="https://icanhazdadjoke.com">icanhazdadjoke.com</a>😂😂<br>
-            <h3>{joke}</h3>
+            <h3><em>{joke}</em></h3>
             </p>
         '''
 

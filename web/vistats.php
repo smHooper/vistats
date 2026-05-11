@@ -2,14 +2,14 @@
 
 <?php
 
-include '../config/vistats-entry-config.php';
+include '../../config/vistats-entry-config.php';
 
 
 function runQuery($ipAddress, $port, $dbName, $username, $password, $queryStr, $parameters=array()) {
 	/*return result of a postgres query as an array*/
 
 	$conn = pg_connect("hostaddr=$ipAddress port=$port dbname=$dbName user=$username password=$password");
-
+	
 	if (!$conn) {
 		return array("db connection failed");
 	}
@@ -39,9 +39,9 @@ function runQueryWithinTransaction($conn, $queryStr, $parameters=array()) {
 
 
 function queryMSSQL($conn, $sql) {
-
+	
 	$stmt = sqlsrv_query($conn, $sql);
-
+	
 	if ($stmt === false) {
 		return sqlsrv_errors();
 	}
@@ -59,19 +59,19 @@ function runCmd($cmd) {
 	// can't get this to work for python commands because conda throws
 	// an error in conda-script (can't import cli.main)
 	$process = proc_open(
-		$cmd,
+		$cmd, 
 		array(
 			0 => array("pipe", "r"), //STDIN
 		    1 => array('pipe', 'w'), // STDOUT
 		    2 => array('pipe', 'w')  // STDERR
-		),
+		), 
 		$pipes,
 		NULL,
 		NULL,
 		array('bypass_shell' => false)
 	);
 
-	$resultObj;
+	$resultObj; 
 
 	if (is_resource($process)) {
 
@@ -108,12 +108,12 @@ function deleteFile($filePath) {
 
 
 if (isset($_POST['submit']) && isset($_FILES['uploadedFile'])) {
-
+	
 	$fileName = preg_replace('/[^\w.]+/', '_', basename($_FILES['uploadedFile']['name']));
 	$uploadFilePath = "temp_files/$fileName";
-
+	
 	if (move_uploaded_file($_FILES['uploadedFile']['tmp_name'], $uploadFilePath)) {
-
+		
 		if (isset($_POST['reportType'])) {
 			// this is from the import-data-modal form
 			$countDate = $_POST['countDate'];
@@ -124,9 +124,9 @@ if (isset($_POST['submit']) && isset($_FILES['uploadedFile'])) {
 			exec($cmd, $output, $resultCode);
 
 			deleteFile($uploadFilePath);
-
+			
 			// for some reason, $output is an array with one element, the stdout string
-			//	In order to return just the stdout string (which is a JSON object encoding
+			//	In order to return just the stdout string (which is a JSON object encoding 
 			//	as a string!), I have to get the 0th element, convert to a JSON object,
 			//	then convert back to a string to send the respoonse back to the browser
 			//	In case the Python script returned an error (and therefore json_decode would
@@ -137,7 +137,7 @@ if (isset($_POST['submit']) && isset($_FILES['uploadedFile'])) {
 				echo(json_decode($output));
 				exit();
 			}
-			echo(json_encode($jsonOutput));
+			echo(json_encode($cmd));
 		} else {
 			echo "ERROR: file upload for this form is not set up yet";
 			deleteFile($uploadFilePath);
@@ -150,7 +150,7 @@ if (isset($_POST['submit']) && isset($_FILES['uploadedFile'])) {
 
 
 if (isset($_POST['action'])) {
-
+	
 	// retrieve the names of all files that need to be edited
 	if ($_POST['action'] == 'getFiles') {
 		$json_files = array_filter(glob('data/*geojsons.json'));
@@ -176,7 +176,7 @@ if (isset($_POST['action'])) {
 	}
 
 	if ($_POST['action'] == 'getUserRoles') {
-		echo json_encode($USER_ROLES);
+		echo $USER_ROLES;
 	}
 	
 	if ($_POST['action'] == 'query') {

@@ -5,6 +5,20 @@ var COUNT_PERIODS = {}; // stores id, count_date from count_periods table
 var DATA = {}; // stores queried data
 var CURRENT_DATE = '1970-1-1';
 var UNDO_BUFFER = {};
+const NONREC_VISITS = [
+	8525,
+	8525,
+	15000,
+	28000,
+	68000,
+	104000,
+	112000,
+	96000,
+	50000,
+	17000,
+	11000,
+	7500
+]
 
 function queryDB(sql) {
 
@@ -52,7 +66,7 @@ function onVerifyAllClick(event) {
 	const username = $('#username').text();
 
 	// If any data fields are blank, as the user if they want to set them to 0
-	const missingVals = $('.data-input').filter(function() {return !$(this).hasClass('hidden') && $(this).val() === ""});
+	const missingVals =  $('.data-input-row:not(.hidden) .data-input').filter((_, el) => $(el).val() === '');
 	if (missingVals.length) {
 		const setTo0 = window.confirm(`1 or more fields that you're marking as confirmed are currently blank. Do you want to set them all to 0 or cancel verifying all values?`)
 		if (setTo0) {
@@ -260,7 +274,7 @@ function configureForm(periodDate) {
 						<div class="data-input-row ${seasonClass} hidden" id="data-row-${object.retrieve_data_label}" data-label-id=${object.id} data-source-tag=${object.source_tag}>
 							<div class="label-column data-input-cell data-input-label left-align">${object.dena_label}</div>
 							<div class="input-column data-input-cell">
-								<input class="data-input" type="number" id="input-${object.retrieve_data_label}" min="0" requried value=${object.value} data-irma-element=${object.irma_html_element_id} tabindex=${rowIndex * 3 + 1}></div>
+								<input class="data-input" type="number" id="input-${object.retrieve_data_label}" min="0" requried value=${object.value} data-irma-field-id=${object.irma_field_id} tabindex=${rowIndex * 3 + 1}></div>
 							<div class="is-estimated-column data-input-cell">
 								<label class="checkmark-container">
 									<input class="input-checkbox estimated-checkbox" type="checkbox" ${isEstimated} id="checkbox-estimated-${object.retrieve_data_label}">
@@ -431,6 +445,8 @@ function onDataInputChange(inputID, promptIfVerified=true) {
 		DATA[labelID].value = thisInput.val();
 		userDidEdit(labelID);
 	}
+
+	thisInput.addClass('data-dirty');
 }
 
 
@@ -566,11 +582,12 @@ function onSaveClick(event) {
 	var sqlStatements = [];
 	var sqlParameters = [];
 	var newInserts = [];
-	$('.data-input-row').filter(function() {
-			return !(
-				$(this).hasClass('form-data-header') || 
-				$(this).hasClass('form-data-footer') || 
-				$(this).hasClass('hidden')
+	$('.data-input-row').filter(function(_, el) {
+			const $el = $(el);
+			return $el.find('.data-dirty').length && !(
+				$el.hasClass('form-data-header') || 
+				$el.hasClass('form-data-footer') || 
+				$el.hasClass('hidden')
 			)
 		})
 		.each(function() {
@@ -611,26 +628,36 @@ function onSaveClick(event) {
 		}
 	})
 
-	$.ajax({
+	if (sqlStatements.length === 0) {
+		showModal('You don\'t have any changes to save.', 'No Edits');
+		hideLoadingIndicator();
+		return;
+	}
+
+
+	$.post({
         url: 'vistats.php',
-        method: 'POST',
         data: {action: 'paramQuery', queryString: sqlStatements, params: sqlParameters},
         cache: false
-	}).then(
+	}).done(
     	function(queryResultString){
         	let resultString = queryResultString.trim();
         	if (resultString.startsWith('ERROR') || resultString === "false" || resultString === "php query failed") {
         		alert('Unabled to save changes to the database. ' + resultString);
         		return false; // Save was unsuccessful
         	} else {
-        		$('.data-dirty').removeClass('data-dirty')
+        		$('.data-dirty').removeClass('data-dirty');
         		// Set each INSERTed object's is_new_value property to 0
         		newInserts.forEach((id) => {DATA[id].is_new_value = 0});
         		return true; // Save was successful
         	}
         	hideLoadingIndicator();
         }
-	)
+	).fail((xhr, status, error) => {
+		console.log(xhr, error);
+	}).always(() => {
+		hideLoadingIndicator();
+	})
 }
 
 
@@ -677,27 +704,31 @@ function loadJVReport(responseText, statusText, xhr, $form) {
 	} else {
 		// The script ran successfull and returned a JSON string
 		data = $.parseJSON(responseText);
-		for (retrieve_data_label in data) {
-			const thisID = $(this)
-			const thisValue = data[retrieve_data_label];
-			const thisRow = $(`#data-row-${retrieve_data_label}`);
-			const thisInput = $(`#input-${retrieve_data_label}`);
-
-			// Update form
-			thisInput.val(thisValue);
-			thisRow.find('.estimated-checkbox').prop('checked', false);
-			thisRow.find('.verified-checkbox').prop('checked', true);
-
-			// Update global DATA object
-			thisRow.find('.verified-by-label').text(username);
-			onDataInputChange('input-' + retrieve_data_label, promptIfVerified=false);
-		}
-
+		fillJVreportFields(data)
 		closeImportDataModal();
 		hideLoadingIndicator('onImportButtonClick');		
 		alert(`JV ${dataType} data successfullly loaded`)
 	}
 
+}
+
+function fillJVreportFields(data){
+
+	for (retrieve_data_label in data) {
+		const thisID = $(this)
+		const thisValue = data[retrieve_data_label];
+		const thisRow = $(`#data-row-${retrieve_data_label}`);
+		const thisInput = $(`#input-${retrieve_data_label}`);
+
+		// Update form
+		thisInput.val(thisValue);
+		thisRow.find('.estimated-checkbox').prop('checked', false);
+		thisRow.find('.verified-checkbox').prop('checked', true);
+
+		// Update global DATA object
+		thisRow.find('.verified-by-label').text(username);
+		onDataInputChange('input-' + retrieve_data_label, promptIfVerified=false);
+	}
 }
 
 
@@ -818,26 +849,26 @@ function generateJavascript(event) {
 	const selectedDate = new Date($('#month-select').val() + 'T12:00:00.000-08:00');
 	const monthNumber = selectedDate.getMonth() + 1;
 	const monthName = selectedDate.toLocaleString('default', { month: 'long' });
-	const irmaURL = `https://irma.nps.gov/STATS/Data/Input?month=${monthNumber}&year=${selectedDate.getFullYear()}&unit=DENA`;
+	const irmaURL = `https://irma.nps.gov/STATS/Data/Input/DENA?month=${monthNumber}&year=${selectedDate.getFullYear()}&unit=DENA`;
 
-	var jsString = ''//`document.getElementById('periodComboId-inputEl').value = '${monthName}, ${selectedDate.getFullYear()}';\n`
+	// initialize javascript string with code to set non-rec visits based on monthly 
+	var jsString = `$('input[name="F103"]').val(${NONREC_VISITS[monthNumber - 1]}); `;
 
-	$('.data-input-row').filter(function(_, el) {return !$(el).hasClass('form-data-header') && !$(el).hasClass('form-data-footer')}).each(function() {
-		const thisInput = $(this).find('.data-input');
+	for (const el of $('.data-input-row:not(.hidden):not(.form-data-header):not(.form-data-footer)')) {
+		const thisInput = $(el).find('.data-input');
 		var thisValue = thisInput.val();
 		if (thisValue === "" || thisValue === undefined) thisValue = 0;//return;
-		const irmaElementID = thisInput.attr('data-irma-element');
-		jsString += `document.getElementById(${irmaElementID}).value = ${thisValue};\n`;
+		const irmaElementID = thisInput.data('irma-field-id');
+		jsString += `$('input[name="${irmaElementID}"]').val(${thisValue})`;
 		const isEstimated = $('#' + thisInput.attr('id').replace('input-', 'checkbox-estimated-')).prop('checked')
-		if (isEstimated) {
-			jsString += `document.getElementById(${irmaElementID}).classList.add('aprox');\n`;
-			jsString += `document.getElementById(${irmaElementID}).setAttribute('isaprox', '1');\n`;
-		}
-	})
+		jsString += isEstimated ? 
+			`.closest('.x-numberfield')[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));\n` :
+			';\n'
+	}
 
 
 	isWinter = monthNumber < 5 || monthNumber > 9;
-	jsString += `document.getElementById(49727).value = ${isWinter ? 1 : 0};`
+	jsString += `$('input[name="F3"]').val(${isWinter ? 1 : 0});`
 
 	$(	
 	`<div class="modal-background modal-background-dark" id="js-modal-background"></div>
@@ -879,7 +910,7 @@ function generateJavascript(event) {
 	// Select the text field
 	copyToClipboard('js-text', deselect=false);
 
-	setTimeout(() => {alert('javascript text copied to clipboard')}, 300);
+	//setTimeout(() => {alert('javascript text copied to clipboard')}, 300);
 
 }
 
