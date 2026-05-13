@@ -575,6 +575,11 @@ function onKeyDown(e) {
 
 function onSaveClick(event) {
 	
+	if ($('.data-dirty').length === 0) {
+		alert('You have not made any changes to save.');
+		return;
+	}
+
 	showLoadingIndicator();
 
 	event.returnValue = false;
