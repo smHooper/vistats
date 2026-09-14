@@ -39,7 +39,7 @@ MESSAGE_TEMPLATE = '''
             </ul>
             <p>
                 <br>
-                If you have any questions, you can contact <a href="mailto:{params[admin_email]}>{params[admin_email]}</a>. <strong>This is an automated message, so do not reply directly to it.</strong>
+                If you have any questions, you can contact <a href="mailto:{params[admin_email]}">{params[admin_email]}</a>. <strong>This is an automated message, so do not reply directly to it.</strong>
                 <br>
                 Thanks!
             </p>
