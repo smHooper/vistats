@@ -23,7 +23,7 @@ CLIMBING_PERMIT_DB_PATH = r"\\INPDENAFILES11\talk\ClimbersDatabase\backend\Denal
 MSLC_VISITOR_COUNT_PATH = r"\\inpdenafiles02\teams\Interp\Ops All, Statistics\MSLC Winter VC, Education\* Winter VC Stats.xlsx"
 INTERP_FACILITIES_PATH  = r"\\inpdenafiles02\teams\Interp\Programming\Statistics\FY{yy} Stats.xlsx"
 
-LOG_DIR = r"\\inpdenaterm01\vistats\retrieve_data_logs"
+LOG_DIR = r"\\inpdenakeydb01\vistats\retrieve_data_logs"
 
 VEA_LOCATION_NAMES = {
     'Murie Science and Learning Center': 'mslc_visitors',

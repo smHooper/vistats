@@ -245,7 +245,6 @@ class NotificationReward:
             try:
                 return func()
             except:
-                import pdb; pdb.set_trace()
                 attempts += 1
                 last_error = traceback.format_exc()
 
