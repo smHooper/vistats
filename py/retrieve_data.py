@@ -217,7 +217,7 @@ def run_queries(params, log, query_date, current_date=None):
                 SELECT DISTINCT 
                     expedition_member_id, 
                     CASE 
-                        WHEN mountain_name NOT IN ('Denali', 'Foraker') THEN 'backcountry'
+                        WHEN mountain_name NOT IN ('Mount McKinley', 'Foraker') THEN 'backcountry'
                         ELSE mountain_name 
                     END AS mountain_name, 
                     least(coalesce(actual_return_date, now())::date, '{end_date}'::date) - greatest(actual_departure_date, '{start_date}'::date) AS days 
