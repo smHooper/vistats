@@ -176,7 +176,8 @@ def run_queries(params, log, query_date, current_date=None):
             FROM Itinerary
             WHERE 
                 MONTH(Itinerary.[Camp Date])={month} AND
-                YEAR(Itinerary.[Camp Date])={year}
+                YEAR(Itinerary.[Camp Date])={year} AND
+                exclude = false
             GROUP BY MONTH(Itinerary.[Camp Date]), [permit number]
         ) 
         GROUP BY constant;
